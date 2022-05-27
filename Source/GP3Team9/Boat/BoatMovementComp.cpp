@@ -24,8 +24,20 @@ void UBoatMovementComp::Initalize()
 	Initalized = true;
 }
 
+void UBoatMovementComp::AllowGearChange()
+{
+	bAllowGearChange = true;
+}
+
+void UBoatMovementComp::DisallowGearChange()
+{
+
+	bAllowGearChange = false;
+}
+
 void UBoatMovementComp::ReadGearChange(float value)
 {
+	if (!bAllowGearChange) { return; }
 	if (FMath::IsNearlyZero(value))
 	{
 		bOnChangedGears = false;

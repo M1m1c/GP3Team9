@@ -46,10 +46,16 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 		class UFloatMasterComp* floatMasterComp;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		class UHealthComp* healthComp;
+
 protected:
 	virtual void BeginPlay() override;
 
 	void UpdateActorZPosition(float DeltaTime);
+
+	UFUNCTION()
+	void OnBoatDeath();
 
 public:
 	virtual void Tick(float DeltaTime) override;

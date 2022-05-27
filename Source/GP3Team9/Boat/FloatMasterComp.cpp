@@ -5,9 +5,23 @@
 
 #include "GP3Team9/Nelson/WaveHeightmap.h"
 
+#include "GameFramework/Actor.h"
+
 UFloatMasterComp::UFloatMasterComp()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+}
+
+void UFloatMasterComp::DisableFloating()
+{
+	//TODO pick two random float points to disable then wait half a second and disable two more,
+	//This should rpoduce some coler sinking animations
+	/*for (auto floater : floatingComps)
+	{
+		floater->ToggleFloatingActive();
+	}*/
+
+	GetOwner()->GetWorldTimerManager().SetTimer(DisableFloatingTimer, this, &UFloatMasterComp::DisableRandomFloatPoints, 0.7f, true, 0.f);
 }
 
 void UFloatMasterComp::BeginPlay()
@@ -27,6 +41,28 @@ void UFloatMasterComp::BeginPlay()
 	{
 		item->Initalize(waveHeightMapAsset, floatingComps.Num());
 	}
-	
+
+}
+
+void UFloatMasterComp::DisableRandomFloatPoints()
+{
+	if (disabledFloaters == floatingComps.Num())
+	{
+		GetOwner()->GetWorldTimerManager().ClearTimer(DisableFloatingTimer);
+		return;
+	}
+
+	int i = 0;
+
+	while (i < 30)
+	{
+		i++;
+		auto randIndex = FMath::RandRange(0, floatingComps.Num() - 1);
+		auto floater = floatingComps[randIndex];
+		if (floater->GetIsFloatingActive() == false) { continue; }
+		floater->ToggleFloatingActive();
+		disabledFloaters++;
+		return;
+	}
 }
 

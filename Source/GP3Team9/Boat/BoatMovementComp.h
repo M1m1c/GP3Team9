@@ -17,6 +17,9 @@ public:
 
 	bool Initalized = false;
 
+	void AllowGearChange();
+	void DisallowGearChange();
+
 	void ReadGearChange(float value);
 
 	void ReadTurning(float value);
@@ -56,6 +59,7 @@ protected:
 	float turnDirection;
 	float collTurnAdditive = 0.f;
 
+	bool bAllowGearChange = false;
 	bool bOnChangedGears = false;
 	TArray<float> throttleGears = { -0.45f,0.f,0.45f,0.7f,1.f };
 	int gearIndex = 1;

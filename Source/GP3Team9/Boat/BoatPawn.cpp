@@ -5,6 +5,7 @@
 #include "BoatMovementComp.h"
 #include "GunDriverComp.h"
 #include "FloatMasterComp.h"
+#include "HealthComp.h"
 
 #include "Components/StaticMeshComponent.h"
 #include <Runtime/Engine/Classes/GameFramework/SpringArmComponent.h>
@@ -46,6 +47,8 @@ ABoatPawn::ABoatPawn()
 
 	floatMasterComp = CreateDefaultSubobject<UFloatMasterComp>(TEXT("FloatMasterComp"));
 
+	healthComp = CreateDefaultSubobject<UHealthComp>(TEXT("HealthComp"));
+
 }
 
 void ABoatPawn::BeginPlay()
@@ -60,7 +63,10 @@ void ABoatPawn::BeginPlay()
 	cameraDriver->Initalize(cameraHolder, cameraArm);
 	boatMovementComp->Initalize();
 	gunDriverComp->Initalize(cameraHolder);
+	healthComp->Initalize(gunDriverComp);
 	pushCollider->SetCollisionProfileName(FName("BoatPush"));
+
+	healthComp->OnBoatDeath.AddDynamic(this, &ABoatPawn::OnBoatDeath);
 }
 
 void ABoatPawn::Tick(float DeltaTime)
@@ -77,6 +83,7 @@ void ABoatPawn::Tick(float DeltaTime)
 		}
 		UpdateActorZPosition(DeltaTime);
 	}
+	if (GetActorLocation().Z < -9500.f) { Destroy(); }
 }
 
 bool ABoatPawn::GetIsInCameraMode()
@@ -100,6 +107,11 @@ void ABoatPawn::UpdateActorZPosition(float DeltaTime)
 	pushCollider->SetWorldLocation(FVector(currentPushLoc.X, currentPushLoc.Y, bodyLoc.Z));
 }
 
+void ABoatPawn::OnBoatDeath()
+{
+	floatMasterComp->DisableFloating();
+}
+
 void ABoatPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -108,15 +120,20 @@ void ABoatPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	//InputComponent->BindAxis("CameraZoom", cameraDriver, &UCameraDriverComp::ReadCameraZoom);
 	InputComponent->BindAction("FreeCameraLook", IE_Pressed, cameraDriver, &UCameraDriverComp::ToggleCameraFreeLook);
 
+	InputComponent->BindAction("AllowGearChange", IE_Pressed, boatMovementComp, &UBoatMovementComp::AllowGearChange);
+	InputComponent->BindAction("DisallowGearChange", IE_Released, boatMovementComp, &UBoatMovementComp::DisallowGearChange);
+
 	InputComponent->BindAxis("GearChange", boatMovementComp, &UBoatMovementComp::ReadGearChange);
 	InputComponent->BindAxis("TurnDirection", boatMovementComp, &UBoatMovementComp::ReadTurning);
 
 	InputComponent->BindAction("FireLeft", IE_Released, gunDriverComp, &UGunDriverComp::FireLeftGuns);
 	InputComponent->BindAction("FireLeft", IE_Pressed, cameraDriver, &UCameraDriverComp::AimLeft);
+	InputComponent->BindAction("FireLeft", IE_Pressed, gunDriverComp, &UGunDriverComp::AimLeftGuns);
 	InputComponent->BindAction("FireLeft", IE_Released, cameraDriver, &UCameraDriverComp::StopAimLeft);
 
 	InputComponent->BindAction("FireRight", IE_Released, gunDriverComp, &UGunDriverComp::FireRightGuns);
 	InputComponent->BindAction("FireRight", IE_Pressed, cameraDriver, &UCameraDriverComp::AimRight);
+	InputComponent->BindAction("FireRight", IE_Pressed, gunDriverComp, &UGunDriverComp::AimRightGuns);
 	InputComponent->BindAction("FireRight", IE_Released, cameraDriver, &UCameraDriverComp::StopAimRight);
 
 	InputComponent->BindAction("FireSwivel", IE_Pressed, gunDriverComp, &UGunDriverComp::FireSwivelGun);

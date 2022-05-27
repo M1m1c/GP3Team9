@@ -15,8 +15,8 @@ public:
 	UFloatComp();
 
 	void Initalize(class UWaveHeightmap* waveMap, float compCount);
-
-	
+	void ToggleFloatingActive();
+	bool GetIsFloatingActive();
 protected:
 	virtual void BeginPlay() override;
 
@@ -37,6 +37,7 @@ protected:
 	class UWorld* world;
 	
 	bool initalized = false;
+	bool bIsFloatingActive = true;
 public:	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 

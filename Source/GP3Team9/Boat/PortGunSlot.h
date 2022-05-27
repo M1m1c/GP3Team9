@@ -17,7 +17,10 @@ public:
 
 
 	UPROPERTY(EditAnywhere)
-		EGunSlotPosition myPosition;
+	EGunSlotPosition myPosition;
+
+	UPROPERTY(EditDefaultsOnly)
+	EHealthSectionPosition sectionPosition;
 
 protected:
 	virtual void BeginPlay() override;

@@ -14,9 +14,12 @@ class GP3TEAM9_API UGunDriverComp : public UActorComponent
 public:	
 	UGunDriverComp();
 
+	void AimLeftGuns();
+	void AimRightGuns();
 	void FireLeftGuns();
 	void FireRightGuns();
 	void FireSwivelGun();
+	TArray<class IDamagableSystem*> GetAllGunSystems();
 
 	void Initalize(class USceneComponent* camHolder);
 
@@ -27,6 +30,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	void SpawnPortGun(class UPortGunSlot* slot, TArray<class AShipGun*>& shipGunList);
+
 
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<class AShipGun> swivelGunBP;
@@ -49,6 +53,8 @@ protected:
 	class AShipGun* swivelShipGun;
 	TArray<class AShipGun*> leftShipGuns;
 	TArray<class AShipGun*> rightShipGuns;
+
+	TArray<class IDamagableSystem*> allGunSystems;
 
 	bool initalized = false;
 };

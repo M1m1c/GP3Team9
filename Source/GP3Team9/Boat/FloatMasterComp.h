@@ -18,9 +18,16 @@ public:
 	UPROPERTY(EditAnywhere)
 	class UWaveHeightmap* waveHeightMapAsset;
 
+	void DisableFloating();
+
 protected:
 
 	virtual void BeginPlay() override;
 
+	void DisableRandomFloatPoints();
+
 	TArray<class UFloatComp*> floatingComps;
+
+	FTimerHandle DisableFloatingTimer;
+	int disabledFloaters = 0;
 };

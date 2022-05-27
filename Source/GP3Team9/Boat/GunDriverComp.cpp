@@ -4,6 +4,7 @@
 #include "BoatEnums.h"
 #include "PortGunSlot.h"
 #include "ShipGun.h"
+#include "DamagableSystem.h"
 
 #include "Engine/World.h"
 
@@ -16,6 +17,72 @@ UGunDriverComp::UGunDriverComp()
 void UGunDriverComp::BeginPlay()
 {
 	Super::BeginPlay();
+
+	
+}
+
+void UGunDriverComp::SpawnPortGun(UPortGunSlot* slot, TArray<class AShipGun*>& shipGunList)
+{
+	auto location = slot->GetComponentLocation();
+	auto rotation = slot->GetComponentRotation();
+	auto portGunInstance = GetWorld()->SpawnActor<AShipGun>(portGunBP, location, rotation);
+	portGunInstance->AttachToComponent(slot, FAttachmentTransformRules::SnapToTargetIncludingScale);
+	shipGunList.Add(portGunInstance);
+	portGunInstance->Initalize(GetOwner(), slot->sectionPosition);
+	allGunSystems.Add(portGunInstance);
+}
+
+void UGunDriverComp::AimLeftGuns()
+{
+	if (!initalized) { return; }
+	for (auto gun : leftShipGuns)
+	{
+		gun->AimGun();
+	}
+}
+
+void UGunDriverComp::AimRightGuns()
+{
+	if (!initalized) { return; }
+	for (auto gun : rightShipGuns)
+	{
+		gun->AimGun();
+	}
+}
+
+void UGunDriverComp::FireLeftGuns()
+{
+	if (!initalized) { return; }
+	for (auto gun : leftShipGuns)
+	{
+		gun->FireGun();
+	}
+}
+
+void UGunDriverComp::FireRightGuns()
+{
+	if (!initalized) { return; }
+	for (auto gun : rightShipGuns)
+	{
+		gun->FireGun();
+	}
+}
+
+void UGunDriverComp::FireSwivelGun()
+{
+	if (!initalized) { return; }
+	swivelShipGun->FireGun();
+}
+
+TArray<IDamagableSystem*> UGunDriverComp::GetAllGunSystems()
+{
+	return allGunSystems;
+}
+
+void UGunDriverComp::Initalize(USceneComponent* camHolder)
+{
+	if (!ensure(camHolder)) { return; }
+	cameraHolder = camHolder;
 
 	auto owner = GetOwner();
 	auto gunSlots = owner->GetComponentsByClass(UPortGunSlot::StaticClass());
@@ -49,6 +116,8 @@ void UGunDriverComp::BeginPlay()
 		auto swivelGunInstance = GetWorld()->SpawnActor<AShipGun>(swivelGunBP, location, rotation);
 		swivelGunInstance->AttachToComponent(swivelGunSlot, FAttachmentTransformRules::SnapToTargetIncludingScale);
 		swivelShipGun = swivelGunInstance;
+		swivelShipGun->Initalize(GetOwner(), swivelGunSlot->sectionPosition);
+		allGunSystems.Add(swivelShipGun);
 	}
 
 	if (ensure(portGunBP))
@@ -65,46 +134,7 @@ void UGunDriverComp::BeginPlay()
 	}
 
 	swivelDefaultRotation = swivelGunSlot->GetRelativeRotation();
-}
 
-void UGunDriverComp::SpawnPortGun(UPortGunSlot* slot, TArray<class AShipGun*>& shipGunList)
-{
-	auto location = slot->GetComponentLocation();
-	auto rotation = slot->GetComponentRotation();
-	auto portGunInstance = GetWorld()->SpawnActor<AShipGun>(portGunBP, location, rotation);
-	portGunInstance->AttachToComponent(slot, FAttachmentTransformRules::SnapToTargetIncludingScale);
-	shipGunList.Add(portGunInstance);
-}
-
-
-void UGunDriverComp::FireLeftGuns()
-{
-	if (!initalized) { return; }
-	for (auto gun : leftShipGuns)
-	{
-		gun->FireGun();
-	}
-}
-
-void UGunDriverComp::FireRightGuns()
-{
-	if (!initalized) { return; }
-	for (auto gun : rightShipGuns)
-	{
-		gun->FireGun();
-	}
-}
-
-void UGunDriverComp::FireSwivelGun()
-{
-	if (!initalized) { return; }
-	swivelShipGun->FireGun();
-}
-
-void UGunDriverComp::Initalize(USceneComponent* camHolder)
-{
-	if (!ensure(camHolder)) { return; }
-	cameraHolder = camHolder;
 	initalized = true;
 }
 
@@ -113,7 +143,7 @@ void UGunDriverComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	if (!initalized) { return; }
 	auto newRot = swivelDefaultRotation + cameraHolder->GetRelativeRotation();
-	if (newRot.Yaw > swivelMinYaw && newRot.Yaw < swivelMaxYaw) 
+	if (newRot.Yaw > swivelMinYaw && newRot.Yaw < swivelMaxYaw)
 	{
 		swivelGunSlot->SetRelativeRotation(newRot);
 	}

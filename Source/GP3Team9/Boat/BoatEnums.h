@@ -14,6 +14,16 @@ enum class EGunSlotPosition : uint8
 	Swivel
 };
 
+UENUM(Blueprintable)
+enum class EHealthSectionPosition : uint8
+{
+	None,
+	Left,
+	Right,
+	Front,
+	Back
+};
+
 UCLASS(Abstract)
 class GP3TEAM9_API UBoatEnums : public UDataAsset
 {

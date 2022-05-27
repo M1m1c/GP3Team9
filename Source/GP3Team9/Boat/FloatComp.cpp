@@ -38,6 +38,16 @@ void UFloatComp::Initalize(UWaveHeightmap* waveMap, float compCount)
 	initalized = true;
 }
 
+void UFloatComp::ToggleFloatingActive()
+{
+	bIsFloatingActive = !bIsFloatingActive;
+}
+
+bool UFloatComp::GetIsFloatingActive()
+{
+	return bIsFloatingActive;
+}
+
 void UFloatComp::BeginPlay()
 {
 	Super::BeginPlay();
@@ -56,7 +66,7 @@ void UFloatComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 	boatBody->AddForceAtLocation(gravForce / floatingCompCount, location);
 
 	auto waveHeight = waveHeightMapAsset->GetWaveValue(location, world->GetTimeSeconds());
-	if (location.Z < waveHeight)
+	if (bIsFloatingActive && location.Z < waveHeight)
 	{
 		if (!FMath::IsNearlyEqual(gravityAccel, defaultGravityAccel))
 		{
