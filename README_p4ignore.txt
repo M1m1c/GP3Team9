@@ -1,0 +1,3 @@
+The .p4ignore file and enableP4ignore.bat need to be located at the root directory of your unreal project.
+The first time you, on any computer, open a unreal project from a p4 depot, you need to run the bat-file on that computer before you add anything to your changelist. (yes, every team members needs to run the bat file on their machines, as the config is completely client-side)
+assuming you've put the files in the correct folder you only need to run the bat-file once per unreal project per workspace.
