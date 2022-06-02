@@ -18,14 +18,18 @@ class GP3TEAM9_API AGP3AIController : public AAIController
 	
 public:
 	void Cruise();
-	FVector GetEndPointToCheck(float Angle, float Distance);
 	void ChasePlayer();
 	void AttackPlayer();
+	FVector GetRandomizedFiringTargetPosition();
 	void CheckLineOfSightToPlayer();
 	bool BHasLineOfSight();
-	bool BIsPathClear(FVector Direction);
+	bool BIsDirectionClear(FVector Direction);
 
+	void GoToLastKnownPosition();
+	void SteerTowardsLocation(FVector TargetLocation);
 	virtual void Tick(float DeltaSeconds) override;
+	void Logger (FString input);
+	FString LastLog = "";
 
 
 protected:
@@ -33,7 +37,7 @@ protected:
 
 	
 public:
-	enum class EAIState { Cruising, Chasing, Attacking  };
+	enum class EAIState { Cruising, Chasing, GoingToLastKnownPosition, Attacking  };
 	EAIState CurrentState = EAIState::Cruising;
 
 
@@ -42,20 +46,22 @@ public:
 	AActor* TargetPlayer = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float MaxAttackDistance = 10000;
+	float MaxAttackDistance = 5000;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float MinDistanceToPlayer = 5000;
+	float MinDistanceToPlayer = 3000;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FHitResult HitResult;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FVector LastKnownPlayerLocation;
+	FVector LastKnownPlayerPosition;
 
 	
 	
 };
+
+
 
 
 

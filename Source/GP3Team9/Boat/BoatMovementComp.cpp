@@ -47,7 +47,7 @@ void UBoatMovementComp::ReadGearChange(float value)
 
 	bOnChangedGears = true;
 
-	auto bOnLastGear = gearIndex == (throttleGears.Num() - 1);
+	auto bOnLastGear = gearIndex == gearClamp;
 	auto bOnFirstGear = gearIndex == 0;
 	if (value > 0.f && !bOnLastGear) {
 		gearIndex++;
@@ -60,9 +60,15 @@ void UBoatMovementComp::ReadGearChange(float value)
 	{
 		return;
 	}
+	SetGear(gearIndex);
+}
+
+void UBoatMovementComp::SetGear(int newGear)
+{
+	gearIndex = FMath::Clamp(newGear, 0, gearClamp);
 	owner->OnGearChange(gearIndex);
 	throttle = throttleGears[gearIndex];
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Gear Changed to: %d"), gearIndex));
+	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Gear Changed to: %d"), gearIndex));
 }
 
 void UBoatMovementComp::ReadTurning(float value)
@@ -74,6 +80,27 @@ void UBoatMovementComp::ReadTurning(float value)
 	}
 	turnDirection = FMath::Clamp(value, -1.f, 1.f);;
 	bUpdateTurnVel = true;
+}
+
+EHealthSectionPosition UBoatMovementComp::GetSectionPosition()
+{
+	return EHealthSectionPosition::Back;
+}
+
+void UBoatMovementComp::DisableSystem()
+{
+	gearClamp = 2;
+	SetGear(gearIndex);
+}
+
+void UBoatMovementComp::EnableSystem()
+{
+	gearClamp = throttleGears.Num() - 1;
+}
+
+void UBoatMovementComp::UpdateCrewCount(int newCrewCount)
+{
+	crewCount = newCrewCount;
 }
 
 void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
@@ -92,7 +119,7 @@ void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
 	float RemainingTime = DeltaTime;
 	int Iterations = 0;
 
-	auto force = (maxSpeed * DeltaTime * moveVelocity);
+	auto force = ((maxSpeed + (crewCount * 3.f)) * DeltaTime * moveVelocity);
 	auto direction = owner->GetActorForwardVector();
 	auto velocity = direction * force;
 	while (RemainingTime > 0.f && ++Iterations < 10)
@@ -156,9 +183,10 @@ void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
 
 void UBoatMovementComp::UpdateBoatRotation(float DeltaTime)
 {
-	auto updatedYaw = GetUpdatedRotAxis(DeltaTime, turnSpeed, turnVelocity, throttle < 0.f ? -turnDirection : turnDirection, bUpdateTurnVel);
+	auto bShouldReverseTurning = moveVelocity < 0.f && throttle < 0.f;
+	auto updatedYaw = GetUpdatedRotAxis(DeltaTime, turnSpeed, turnVelocity, bShouldReverseTurning ? -turnDirection : turnDirection, bUpdateTurnVel);
 
-	FRotator newRotation = FRotator(0.f, updatedYaw, 0.f) * DeltaTime * FMath::Clamp(FMath::Abs(moveVelocity), 0.2f, 1.f);
+	FRotator newRotation = FRotator(0.f, updatedYaw, 0.f) * DeltaTime * FMath::Clamp(FMath::Abs(moveVelocity) * 2.f, 0.2f, 1.f);
 
 	FQuat quatRotation = FQuat(newRotation);
 

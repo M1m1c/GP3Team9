@@ -13,15 +13,20 @@ struct FWaveValues
 
 public:
 	UPROPERTY(EditAnywhere)
-	FVector waveDirection;
-	UPROPERTY(EditAnywhere)
+	// The horizontal stretch of the wave
 	float waveLength;
 	UPROPERTY(EditAnywhere)
-	float waveSpeed;
-	UPROPERTY(EditAnywhere)
+	// The vertical stretch of the wave
 	float waveAmplitude;
 	UPROPERTY(EditAnywhere)
-	float gerstnerFactor;
+	// How quickly the wave travels along it's direction vector
+	float waveSpeed;
+	UPROPERTY(EditAnywhere)
+	// how sharp the wavecrests look like
+	float waveSteepness;
+	UPROPERTY(EditAnywhere)
+	// the direction which the wave will move towards -- (!) PLEASE KEEP Z = 0 (!)
+	FVector waveDirection;
 };
 
 UCLASS()
@@ -32,7 +37,10 @@ class GP3TEAM9_API UWaveHeightmap : public UDataAsset
 public:
 	UFUNCTION()
 	float GetWaveValue(FVector worldPos, float time);
-
+	
+	float surfaceLevelHeight = 0;
+	
 	UPROPERTY(BlueprintType, EditAnywhere)
+	// The shader currently requires using 3 waves! No more, no less!
 	TArray<FWaveValues> waves;
 };

@@ -3,10 +3,11 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "DamagableSystem.h"
 #include "BoatMovementComp.generated.h"
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class GP3TEAM9_API UBoatMovementComp : public UActorComponent
+class GP3TEAM9_API UBoatMovementComp : public UActorComponent, public IDamagableSystem
 {
 	GENERATED_BODY()
 
@@ -22,9 +23,17 @@ public:
 
 	void ReadGearChange(float value);
 
+	void SetGear(int newGear);
+
 	void ReadTurning(float value);
 
+	virtual EHealthSectionPosition GetSectionPosition() override;
+	virtual void DisableSystem() override;
+	virtual void EnableSystem() override;
+	virtual void UpdateCrewCount(int newCrewCount) override;
 	
+	UPROPERTY(EditDefaultsOnly)
+	float turnSpeed = 80.f;
 
 protected:
 
@@ -34,8 +43,7 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly)
 	float maxSpeed = 500.0f;
-	UPROPERTY(EditDefaultsOnly)
-	float turnSpeed = 80.f;
+
 
 	UPROPERTY(BlueprintReadOnly)
 	float moveVelocity = .0f;
@@ -63,6 +71,9 @@ protected:
 	bool bOnChangedGears = false;
 	TArray<float> throttleGears = { -0.45f,0.f,0.45f,0.7f,1.f };
 	int gearIndex = 1;
+	int gearClamp = 4;
+
+	int crewCount = 0;
 
 	UPROPERTY(BlueprintReadOnly)
 		float turnVelocity = .0f;

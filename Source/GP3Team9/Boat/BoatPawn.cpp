@@ -6,6 +6,7 @@
 #include "GunDriverComp.h"
 #include "FloatMasterComp.h"
 #include "HealthComp.h"
+#include "CrewComp.h"
 
 #include "Components/StaticMeshComponent.h"
 #include <Runtime/Engine/Classes/GameFramework/SpringArmComponent.h>
@@ -49,6 +50,7 @@ ABoatPawn::ABoatPawn()
 
 	healthComp = CreateDefaultSubobject<UHealthComp>(TEXT("HealthComp"));
 
+	crewComp = CreateDefaultSubobject<UCrewComp>(TEXT("CrewComp"));
 }
 
 void ABoatPawn::BeginPlay()
@@ -56,8 +58,10 @@ void ABoatPawn::BeginPlay()
 	Super::BeginPlay();
 	boatBody->SetSimulatePhysics(true);
 	boatBody->SetEnableGravity(false);
-	boatBody->SetLinearDamping(2.f);
-	boatBody->SetAngularDamping(5.f);
+	//boatBody->SetLinearDamping(2.f);
+	//boatBody->SetAngularDamping(5.f);
+	defaultAngularDamping = boatBody->GetAngularDamping();
+	defaultLinearDamping = boatBody->GetLinearDamping();
 	auto startLocation = GetActorLocation();
 	pushCollider->SetWorldLocation(startLocation);
 	cameraDriver->Initalize(cameraHolder, cameraArm);
@@ -67,6 +71,7 @@ void ABoatPawn::BeginPlay()
 	pushCollider->SetCollisionProfileName(FName("BoatPush"));
 
 	healthComp->OnBoatDeath.AddDynamic(this, &ABoatPawn::OnBoatDeath);
+	crewComp->OnSendCrew.AddDynamic(this, &ABoatPawn::OnSendCrew);
 }
 
 void ABoatPawn::Tick(float DeltaTime)
@@ -75,6 +80,11 @@ void ABoatPawn::Tick(float DeltaTime)
 
 	if (boatBody)
 	{
+		if (FMath::IsNearlyZero(previousDeltaTime)) { previousDeltaTime = DeltaTime; }
+		auto fps = previousDeltaTime / 1.f;
+		boatBody->SetLinearDamping(FMath::Clamp(FMath::Lerp(defaultLinearDamping, 50.f, fps), defaultLinearDamping, 50.f));
+		boatBody->SetAngularDamping(FMath::Clamp(FMath::Lerp(defaultAngularDamping, 50.f, fps), defaultLinearDamping, 50.f));
+
 		if (boatMovementComp) {
 			if (boatMovementComp->Initalized) {
 				boatMovementComp->UpdateBoatMovement(DeltaTime);
@@ -82,6 +92,7 @@ void ABoatPawn::Tick(float DeltaTime)
 			}
 		}
 		UpdateActorZPosition(DeltaTime);
+		previousDeltaTime = DeltaTime;
 	}
 	if (GetActorLocation().Z < -9500.f) { Destroy(); }
 }
@@ -109,7 +120,16 @@ void ABoatPawn::UpdateActorZPosition(float DeltaTime)
 
 void ABoatPawn::OnBoatDeath()
 {
+	if (bIsBoatDead) { return; }
+	bIsBoatDead = true;
+	//boatBody->SetAllPhysicsLinearVelocity(FVector::ZeroVector);
 	floatMasterComp->DisableFloating();
+	//boatBody->SetAllPhysicsLinearVelocity(FVector::ZeroVector);
+}
+
+void ABoatPawn::OnSendCrew(int startSection, int endSection)
+{
+	OnSendCrewToSection(startSection, endSection);
 }
 
 void ABoatPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -138,6 +158,9 @@ void ABoatPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 	InputComponent->BindAction("FireSwivel", IE_Pressed, gunDriverComp, &UGunDriverComp::FireSwivelGun);
 
+	InputComponent->BindAxis("MoveCrewX", crewComp, &UCrewComp::MoveCrewMemberX);
+	InputComponent->BindAxis("MoveCrewY", crewComp, &UCrewComp::MoveCrewMemberY);
+
 }
 
 
@@ -157,7 +180,7 @@ float ABoatPawn::GetProportionalVelocityChange(float deltaTime, float currentVel
 
 float ABoatPawn::GetPropVelocityChangeConstantDec(float deltaTime, float currentVelocity, float accelSpeed, float decelSpeed, bool changeCondition)
 {
-	auto proportionalDec = -(deltaTime + (deltaTime * (decelSpeed * currentVelocity)));	
+	auto proportionalDec = -(deltaTime + (deltaTime * (decelSpeed * currentVelocity)));
 	auto deceleration = currentVelocity > .0f ? proportionalDec : -deltaTime;
 	auto velocityChange = (changeCondition ? deltaTime * accelSpeed : deceleration);
 	return velocityChange;

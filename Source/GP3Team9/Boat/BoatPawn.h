@@ -49,6 +49,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 		class UHealthComp* healthComp;
 
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		class UCrewComp* crewComp;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -56,6 +60,15 @@ protected:
 
 	UFUNCTION()
 	void OnBoatDeath();
+
+	UFUNCTION()
+	void OnSendCrew(int startSection, int endSection);
+
+	bool bIsBoatDead = false;
+
+	float defaultLinearDamping;
+	float defaultAngularDamping;
+	float previousDeltaTime=0.0f;
 
 public:
 	virtual void Tick(float DeltaTime) override;
@@ -66,6 +79,10 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnGearChange(int newThrottleGear);
+
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnSendCrewToSection(int startSection, int endSection);
 
 	float GetLinearVelocityChange(float deltaTime, float accelSpeed);
 

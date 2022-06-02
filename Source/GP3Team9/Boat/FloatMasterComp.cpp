@@ -16,10 +16,17 @@ void UFloatMasterComp::DisableFloating()
 {
 	//TODO pick two random float points to disable then wait half a second and disable two more,
 	//This should rpoduce some coler sinking animations
-	/*for (auto floater : floatingComps)
+
+	auto jumpDeathRand = FMath::RandRange(1, 3);
+
+	if (jumpDeathRand == 3) 
 	{
-		floater->ToggleFloatingActive();
-	}*/
+		for (auto floater : floatingComps)
+		{
+			floater->SetSinkGravity(-980.f, 1.f);
+		}
+	}
+	
 
 	GetOwner()->GetWorldTimerManager().SetTimer(DisableFloatingTimer, this, &UFloatMasterComp::DisableRandomFloatPoints, 0.7f, true, 0.f);
 }
@@ -39,7 +46,7 @@ void UFloatMasterComp::BeginPlay()
 
 	for (auto item : floatingComps)
 	{
-		item->Initalize(waveHeightMapAsset, floatingComps.Num());
+		item->Initalize(waveHeightMapAsset, floatingComps.Num(),gravity,defaultGravityAccel,submergedDivider,massMultiplier);
 	}
 
 }
@@ -60,6 +67,7 @@ void UFloatMasterComp::DisableRandomFloatPoints()
 		auto randIndex = FMath::RandRange(0, floatingComps.Num() - 1);
 		auto floater = floatingComps[randIndex];
 		if (floater->GetIsFloatingActive() == false) { continue; }
+		floater->SetSinkGravity(-980.f, 1.f);
 		floater->ToggleFloatingActive();
 		disabledFloaters++;
 		return;

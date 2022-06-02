@@ -16,29 +16,44 @@ class GP3TEAM9_API UHealthSection : public UBoxComponent
 {
 	GENERATED_BODY()
 public:
-		UHealthSection();
-		virtual void BeginPlay() override;
+	UHealthSection();
+	virtual void BeginPlay() override;
 
-		UFUNCTION(BlueprintImplementableEvent)
-			void OnDestroyed();
-		UFUNCTION(BlueprintImplementableEvent)
-			void OnRepaired();
+	UFUNCTION(BlueprintImplementableEvent)
+		void OnDestroyed();
+	UFUNCTION(BlueprintImplementableEvent)
+		void OnRepaired();
 
-		FDestroyedSectionDamage OnDestroyedDamageTaken;
-		FSectionDestroyedRef OnSectionDestroyedWithRef;
-		FSectionRepairedRef OnSectionRepairedWithRef;
+	FDestroyedSectionDamage OnDestroyedDamageTaken;
+	FSectionDestroyedRef OnSectionDestroyedWithRef;
+	FSectionRepairedRef OnSectionRepairedWithRef;
 
-		UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly)
 		EHealthSectionPosition SectionPosition;
 
-		void SectionApplyDamage(float damage);
+	void SectionApplyDamage(float damage);
 
-		void AddDamagableSystem(class IDamagableSystem* systemToAdd);
-		
+	void ApplyRepairHealth(float healthRepaired);
+
+	void AddDamagableSystem(class IDamagableSystem* systemToAdd);
+
+	void ChangeCrewCount(int amountToChangeBy);
+
+	int GetCrewCount();
+
+	bool GetIsDestroyed();
+
+	UFUNCTION(BlueprintCallable)
+	float GetMaxSectionHealth();
+
+	UFUNCTION(BlueprintCallable)
+	float GetCurrentSectionHealth();
 
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	float maxSectionHealth = 500.f;
 	float currentSectionHealth = 500.f;
+	int crewCount = 0;
+	bool bIsDestroyed = false;
 	TArray<class IDamagableSystem*> mySystems;
 };

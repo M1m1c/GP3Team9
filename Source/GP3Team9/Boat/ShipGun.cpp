@@ -4,9 +4,11 @@
 #include "DrawDebugHelpers.h"
 #include "HealthSection.h"
 
+#include "Kismet/KismetMathLibrary.h"
+
 AShipGun::AShipGun()
 {
- 	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = true;
 	auto root = CreateDefaultSubobject<USceneComponent>(FName("Root"));
 	SetRootComponent(root);
 	firingPoint = CreateDefaultSubobject<USceneComponent>(FName("FiringPoint"));
@@ -27,11 +29,11 @@ void AShipGun::FireGun()
 	if (!bSystemActive) { return; }
 	if (bIsOnCoolDown) { return; }
 	bIsOnCoolDown = true;
-	bAiming = false;
 	currentCoolDown = maxCoolDown;
+	bAiming = false;
 	OnGunFire();
 	auto start = firingPoint->GetComponentLocation();
-	auto forward = GetActorForwardVector();
+	auto forward = firingPoint->GetForwardVector();
 	auto end = start + (forward * maxRange);
 	DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 2.f, 0, 100.f);
 	TArray<FHitResult> OutHits;
@@ -62,7 +64,25 @@ void AShipGun::AimGun()
 
 float AShipGun::GetCoolDownProgress()
 {
-	return maxCoolDown/currentCoolDown;
+	return maxCoolDown / currentCoolDown;
+}
+
+void AShipGun::SetGunFirePointRotation(FRotator rotation)
+{
+	firingPoint->SetWorldRotation(rotation);
+}
+
+FVector AShipGun::GetGunFiringLocation()
+{
+	return firingPoint->GetComponentLocation();
+}
+
+void AShipGun::AlignFirePointToHorizon(float DeltaTime)
+{
+	auto speed = DeltaTime * alignmentSpeed;
+	auto  firePointRot = firingPoint->GetComponentRotation();
+	auto newRot = FQuat(FRotator(0.f, firePointRot.Yaw, firePointRot.Roll));
+	firingPoint->SetWorldRotation(FQuat::Slerp(FQuat(firePointRot),newRot,speed));
 }
 
 EHealthSectionPosition AShipGun::GetSectionPosition()
@@ -73,14 +93,18 @@ EHealthSectionPosition AShipGun::GetSectionPosition()
 void AShipGun::DisableSystem()
 {
 	bSystemActive = false;
-	UE_LOG(LogTemp, Warning, TEXT("gun destroyed"));
 }
 
 void AShipGun::EnableSystem()
 {
-	bSystemActive = true;
 	currentCoolDown = 0.f;
 	bIsOnCoolDown = false;
+	bSystemActive = true;
+}
+
+void AShipGun::UpdateCrewCount(int newCrewCount)
+{
+	crewCount = newCrewCount;
 }
 
 
@@ -89,9 +113,9 @@ void AShipGun::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	if (!initalized) { return; }
 	if (!bSystemActive) { return; }
-	if (bIsOnCoolDown) 
+	if (bIsOnCoolDown)
 	{
-		currentCoolDown = FMath::Clamp(currentCoolDown - DeltaTime, 0.f, maxCoolDown);
+		currentCoolDown = FMath::Clamp(currentCoolDown - (DeltaTime + (DeltaTime * crewCount)), 0.f, maxCoolDown);
 		if (FMath::IsNearlyZero(currentCoolDown)) { bIsOnCoolDown = false; }
 	}
 

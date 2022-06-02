@@ -3,7 +3,6 @@
 
 #include "WaveHeightmap.h"
 
-
 float UWaveHeightmap::GetWaveValue(FVector worldPos, float time)
 {
 	if(waves.Num() == 0)
@@ -12,24 +11,36 @@ float UWaveHeightmap::GetWaveValue(FVector worldPos, float time)
 		return 0;
 	}
 	
-	float waveHeight = 0;
+	float waveHeight = surfaceLevelHeight;
+	float twoPi = 6.28318531f;
+	float onePlusEpsilon = 1.1f;
+	// float hardcodedTimeDelay = - 0.5f;
 
 	for (int i = 0; i < waves.Num(); i++)
 	{
 		FWaveValues wave = waves[i];
-		float waveNumber = 1.0f / wave.waveLength;
+		// wave number to normalize coordinates into world space
+		float waveNumber = twoPi / wave.waveLength;
 
-		// make an SDF with worldPos and waveDir, scale it to waveNumber (inverse waveLength)
-		float waveFront = FVector::DotProduct(wave.waveDirection.GetSafeNormal(), worldPos) * waveNumber;
+		// Fake Gerstner Factor to make sharper crests
+		float steepnessFactor = onePlusEpsilon - wave.waveSteepness;
 
-		// Apply the time offset to the SDF
-		float transformedTime = waveFront - time * wave.waveSpeed;
+		// Sample position before time
+		float samplingTemp = FVector::DotProduct(wave.waveDirection.GetSafeNormal(), worldPos) * waveNumber;
+		
+		// Sample position after time
+		float samplePos = samplingTemp - wave.waveSpeed * time; // + hardcodedTimeDelay;
 
-		// Add a sine wave to the transformed time to make the gerstner shape for the wave
-		float gerTime = transformedTime + wave.gerstnerFactor * sin(transformedTime);
+		// samplePos = FMath::Fmod(samplePos,twoPi);
+
+		// Tangent of samplePos
+		float tanVal = FMath::Tan(samplePos);
+
+		// Denominator
+		float denominatorVal = 1.0f + (tanVal * tanVal/steepnessFactor);
 
 		// applying amplitude
-		waveHeight += wave.waveAmplitude * cos(gerTime);
+		waveHeight += wave.waveAmplitude / denominatorVal;
 	}
 	
 	return waveHeight;

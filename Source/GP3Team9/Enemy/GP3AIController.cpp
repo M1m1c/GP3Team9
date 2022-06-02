@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GP3Team9/Boat/BoatMovementComp.h"
+#include "GP3Team9/Boat/GunDriverComp.h"
 // #include "GameFramework/Actor.h"
 
 AGP3AIController::AGP3AIController()
@@ -15,7 +16,6 @@ void AGP3AIController::BeginPlay()
 {
 	Super::BeginPlay();
 	Self = Cast<ABoatPawn>(GetPawn());
-	TargetPlayer = UGameplayStatics::GetPlayerController(GetWorld(), 0)->GetPawn();
 }
 
 void AGP3AIController::Tick(float DeltaSeconds)
@@ -26,171 +26,246 @@ void AGP3AIController::Tick(float DeltaSeconds)
 	{
 		return;
 	}
-
+	
 	CheckLineOfSightToPlayer();
 	
 	switch (CurrentState)
 	{
-	case EAIState::Cruising : Cruise(); break;
-	case EAIState::Chasing : ChasePlayer(); break;
-	case EAIState::Attacking : AttackPlayer(); break;
+	case EAIState::Cruising :
+		Cruise();
+		Self->boatMovementComp->SetGear(2);
+		Self->boatMovementComp->turnSpeed = 20;
+		break;
+	case EAIState::Chasing :
+		ChasePlayer();
+		Self->boatMovementComp->SetGear(3);
+		Self->boatMovementComp->turnSpeed = 20;
+		break;
+	case EAIState::GoingToLastKnownPosition :
+		GoToLastKnownPosition();
+		Self->boatMovementComp->SetGear(3);
+		Self->boatMovementComp->turnSpeed = 20;
+		break;
+	case EAIState::Attacking :
+		AttackPlayer();
+		Self->boatMovementComp->SetGear(1);
+		Self->boatMovementComp->turnSpeed = 40;
+		break;
 	}
 }
 
 void AGP3AIController::Cruise()
 {
-	// UE_LOG(LogTemp, Warning, TEXT("Player not in sight"));
+	Logger("Just cruisin'");
 	
-	DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation(), TargetPlayer->GetActorLocation(), FColor::Red);
+	if (BHasLineOfSight())
+	{
+		CurrentState = EAIState::Chasing;
+		LastKnownPlayerPosition = HitResult.Location;
+		return;
+	}
 	
-	Self->boatMovementComp->ReadGearChange(1);
-	Self->boatMovementComp->ReadGearChange(1);
-
-	float DistanceToCheck = 1000.0f;
-	bool ClearAhead = BIsPathClear(GetPawn()->GetActorLocation() + GetPawn()->GetActorForwardVector() * DistanceToCheck);
-	float SteerInput;
+	float DistanceToCheck = 5000.0f;
+	FVector ForwardVector = GetPawn()->GetActorForwardVector();
+	float SteerInput = 0;
 	
+	bool ClearAhead = BIsDirectionClear(ForwardVector);
 	if (!ClearAhead)
 	{
-		for (int Angle = 0; Angle < 180; Angle+=5)
+		for (int Angle = 0; Angle < 160; Angle+=5)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("%d"), Angle)
-			// FVector NormalizedOffset = FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0);
-			FVector DirectionToCheck = GetEndPointToCheck(Angle, DistanceToCheck);
-			
-			// SteerInput = FMath::Clamp((float)Angle, 0.0f, 1.0f);
-			UE_LOG(LogTemp, Warning, TEXT("%f"), SteerInput)
+			FVector DirectionToCheck;
+			float AngleInRad;
 
-			if (BIsPathClear(DirectionToCheck))
+			AngleInRad = FMath::DegreesToRadians(Angle);
+			DirectionToCheck.X = ForwardVector.X * FMath::Cos(AngleInRad) - ForwardVector.Y * FMath::Sin(AngleInRad);
+			DirectionToCheck.Y = ForwardVector.X * FMath::Sin(AngleInRad) + ForwardVector.Y * FMath::Cos(AngleInRad);
+
+			if (BIsDirectionClear(DirectionToCheck))
 			{
-				SteerInput = -Angle;
+				SteerInput = Angle;
 				break;
 			}
 
-			DirectionToCheck = GetEndPointToCheck(-Angle, DistanceToCheck);
+			AngleInRad = FMath::DegreesToRadians(-Angle);
+			DirectionToCheck.X = ForwardVector.X * FMath::Cos(AngleInRad) - ForwardVector.Y * FMath::Sin(AngleInRad);
+			DirectionToCheck.Y = ForwardVector.X * FMath::Sin(AngleInRad) + ForwardVector.Y * FMath::Cos(AngleInRad);
 
-			if (BIsPathClear(DirectionToCheck))
+			if (BIsDirectionClear(DirectionToCheck))
 			{
 				SteerInput = -Angle;
 				break;
 			}
 		}
 	}
-	else
-	{
-		SteerInput = 0;
-	}
-	
-	Self->boatMovementComp->ReadTurning(SteerInput);
-	
-	if (BHasLineOfSight())
-	{
-		CurrentState = EAIState::Chasing;
-		LastKnownPlayerLocation = HitResult.Location;
-		UE_LOG(LogTemp, Warning, TEXT("Player spotted"));
-	}
+
+	float SteerModifier = 0.0001f;
+	Self->boatMovementComp->ReadTurning(FMath::Clamp(SteerInput, -1.0f, 1.0f) * SteerModifier);
 }
 
-FVector AGP3AIController::GetEndPointToCheck(float Angle, float Distance)
-{
-	float AngleInRad = FMath::DegreesToRadians(Angle);
-	FVector NormalizedForward = GetPawn()->GetActorForwardVector().GetSafeNormal();
-				
-	float x = NormalizedForward.X * FMath::Cos(AngleInRad) -
-		NormalizedForward.Y * FMath::Sin(AngleInRad);
-	float y = NormalizedForward.X * FMath::Sin(AngleInRad) -
-		NormalizedForward.Y * FMath::Cos(AngleInRad);
-	return FVector(x, y, 0) * Distance;
-}
-
-bool AGP3AIController::BIsPathClear(const FVector Direction)
-{
-	FHitResult HitRes;
-	GetWorld()->SweepSingleByChannel(
-		HitRes,
-		GetPawn()->GetActorLocation() + GetPawn()->GetActorForwardVector() * 2000,
-		Direction,
-		FQuat::Identity,
-		ECC_WorldStatic, FCollisionShape::MakeSphere(500.0f)
-	);
-
-	// UE_LOG(LogTemp, Warning, TEXT("%f"), HitRes.Distance)
-	DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation(), Direction, FColor::Red);
-
-	if (HitRes.Actor == nullptr)
-	{
-		return true;
-	}
-	else
-	{
-		DrawDebugBox(GetWorld(), HitRes.Location, FVector(100,100,100), FColor::Red,false,
-		0.3f, 0, 10);
-		UE_LOG(LogTemp, Warning, TEXT("%s"), *HitRes.Actor->GetName());
-		return false;
-	}
-}
 
 void AGP3AIController::ChasePlayer()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Chasing player"));
+	Logger("Player spotted, chasing");
 	DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation(), TargetPlayer->GetActorLocation(), FColor::Blue);
 
-	LastKnownPlayerLocation = TargetPlayer->GetActorLocation();
+	LastKnownPlayerPosition = TargetPlayer->GetActorLocation();
 	
 	if (GetPawn()->GetDistanceTo(TargetPlayer) < MaxAttackDistance)
 	{
 		CurrentState = EAIState::Attacking;
-		UE_LOG(LogTemp, Warning, TEXT("Player within shooting range"));
 		return;
 	}
-	
-	// Start Moving forward. (Using pawn move component)
-	// Check direction to player
-	FRotator RotatorTowardsPlayer = UKismetMathLibrary::MakeRotFromX(TargetPlayer->GetActorLocation());
-	// turn towards player (using pawn Move component)
+
+	SteerTowardsLocation(TargetPlayer->GetActorLocation());
 	
 	if (HitResult.Actor != TargetPlayer)
 	{
+		CurrentState = EAIState::GoingToLastKnownPosition;
+	}
+}
+
+void AGP3AIController::GoToLastKnownPosition()
+{
+	Logger("Checking last known player position");
+	
+	if (BHasLineOfSight())
+	{
+		CurrentState = EAIState::Chasing;
+		LastKnownPlayerPosition = HitResult.Location;
+		return;
+	}
+	
+	SteerTowardsLocation(LastKnownPlayerPosition);
+
+	auto X = FFloatRange(LastKnownPlayerPosition.X - 300, LastKnownPlayerPosition.X + 300);
+	auto Y = FFloatRange(LastKnownPlayerPosition.Y - 300, LastKnownPlayerPosition.Y + 300);
+
+	
+	if (X.Contains(Self->GetActorLocation().X) && Y.Contains(Self->GetActorLocation().Y))
+	{
 		CurrentState = EAIState::Cruising;
-		UE_LOG(LogTemp, Warning, TEXT("Player lost"));
 	}
 }
 
 void AGP3AIController::AttackPlayer()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Attacking Player"));
-	DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), TargetPlayer->GetActorLocation(), FColor::Green);
+	Logger("Player withing shooting range");
+	
+	LastKnownPlayerPosition = TargetPlayer->GetActorLocation();
 
-	LastKnownPlayerLocation = TargetPlayer->GetActorLocation();
-	
-	// Shoot at player (Weapon component?)
-	
-	// if distance is > minDistance: Turn halfway towards player and go forward.
-	
-	
 	if (HitResult.Actor != TargetPlayer)
 	{
-		CurrentState = EAIState::Cruising;
-		UE_LOG(LogTemp, Warning, TEXT("Player lost"));
+		CurrentState = EAIState::GoingToLastKnownPosition;
+		return;
+	}
+	
+	if (GetPawn()->GetDistanceTo(TargetPlayer) > MaxAttackDistance)
+	{
+		CurrentState = EAIState::Chasing;
+		return;
+	}
+	
+	Self->gunDriverComp->FireSwivelGunAtLocation(GetRandomizedFiringTargetPosition());
+	Logger("Firing Swivel gun");
+
+	// If angle to player is "sideways", shoot side gun. Otherwise, turn.
+	FVector PlayerLocationInAILocalSpace = UKismetMathLibrary::InverseTransformLocation(
+		GetPawn()->GetTransform(), TargetPlayer->GetActorLocation());
+	float Angle = FMath::Atan2(PlayerLocationInAILocalSpace.Y , PlayerLocationInAILocalSpace.X);
+
+	float GunAngleHigh = 1.8f;
+	float GunAngleLow = 1.2f;
+	
+	if (Angle > GunAngleLow && Angle < GunAngleHigh)
+	{
+		Logger("Firing right gun");
+		Self->gunDriverComp->FireRightGunsAtLocation(GetRandomizedFiringTargetPosition());
 		return;
 	}
 
-	if (GetOwner()->GetDistanceTo(TargetPlayer) > MaxAttackDistance)
+	if (Angle < -GunAngleHigh && Angle > -GunAngleLow)
 	{
-		CurrentState = EAIState::Chasing;
-		UE_LOG(LogTemp, Warning, TEXT("Player too far away"));
+		Logger("Firing left gun");
+		Self->gunDriverComp->FireLeftGunsAtLocation(GetRandomizedFiringTargetPosition());
+		return;
+	}
+	
+	if (Angle > GunAngleHigh ||
+		Angle > -GunAngleLow && Angle < 0)
+	{
+		Self->boatMovementComp->ReadTurning(0.1f);
+		Logger("Rotating LEFT");
+		return;
+	}
+	
+	if (Angle < -GunAngleHigh ||
+		Angle < GunAngleLow && Angle > 0)
+	{
+		Self->boatMovementComp->ReadTurning(-0.1f);
+		Logger("Rotating RIGHT");
+	}
+}
+
+FVector AGP3AIController::GetRandomizedFiringTargetPosition()
+{
+	float Multiplier = 500;
+	float Offset = UKismetMathLibrary::RandomFloat() * Multiplier - Multiplier / 2;
+	FVector OffsetVector = FVector(Offset);
+	
+	return TargetPlayer->GetActorLocation() + OffsetVector;
+}
+
+void AGP3AIController::SteerTowardsLocation(FVector TargetLocation)
+{
+	FVector LocationInAILocalSpace = UKismetMathLibrary::InverseTransformLocation(
+	GetPawn()->GetTransform(), TargetLocation);
+	float Angle = FMath::Atan2(LocationInAILocalSpace.Y , LocationInAILocalSpace.X);
+
+	// Turn accordingly
+	if (Angle > 0.2f)
+	{
+		Self->boatMovementComp->ReadTurning(0.1f);
+	}
+	if (Angle < 0.2f)
+	{
+		Self->boatMovementComp->ReadTurning(-0.1f);
+	}
+}
+
+bool AGP3AIController::BIsDirectionClear(const FVector Direction)
+{
+	FVector DirectionWithZeroZ = Direction + FVector(0,0,-Direction.Z);
+	FVector Location = GetPawn()->GetActorLocation();
+	FHitResult HitRes;
+	FVector Start = Location + DirectionWithZeroZ * 500;
+	FVector End = Location + DirectionWithZeroZ * 5000;
+	FCollisionShape Shape = FCollisionShape::MakeBox(FVector(100, 200, 100));
+	
+	GetWorld()->SweepSingleByChannel(HitRes, Start, End, FQuat::Identity, ECC_WorldStatic, Shape);
+
+	if (HitRes.Actor == nullptr)
+	{
+		DrawDebugLine(GetWorld(), Start, End, FColor::Green, false, 0.1f, 0, 10);
+		return true;
+	}
+	
+	{
+		DrawDebugLine(GetWorld(), Start, HitRes.Location, FColor::Red, false, 0.1f, 0, 10);
+		return false;
 	}
 }
 
 void AGP3AIController::CheckLineOfSightToPlayer()
 {
-	FVector TraceStartOffset = TargetPlayer->GetActorLocation() - GetPawn()->GetActorLocation();
-	TraceStartOffset.Normalize();
-	FVector TraceStart = GetPawn()->GetActorLocation() + TraceStartOffset * 100;
+	// FHitResult HitResult;
+	FVector Direction = FVector((TargetPlayer->GetActorLocation() - GetPawn()->GetActorLocation()).GetSafeNormal());
+	FVector TraceStart = GetPawn()->GetActorLocation() + Direction * 500;
 	FVector TraceEnd = TargetPlayer->GetActorLocation();
 	
 	GetWorld()->SweepSingleByChannel(HitResult, TraceStart, TraceEnd, FQuat::Identity,
-	ECC_GameTraceChannel2, FCollisionShape::MakeSphere(100.0f));
+	ECC_Pawn, FCollisionShape::MakeSphere(1.0f));
+	
 }
 
 bool AGP3AIController::BHasLineOfSight()
@@ -198,5 +273,16 @@ bool AGP3AIController::BHasLineOfSight()
 	CheckLineOfSightToPlayer();
 	return HitResult.GetActor() == TargetPlayer;
 }
+
+void AGP3AIController::Logger(FString input)
+{
+	if (input == LastLog)
+	{
+		return;
+	}
+	LastLog = input;
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *input);
+}
+
 
 

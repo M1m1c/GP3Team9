@@ -12,3 +12,7 @@ void IDamagableSystem::DisableSystem()
 void IDamagableSystem::EnableSystem()
 {
 }
+
+void IDamagableSystem::UpdateCrewCount(int newCrewCount)
+{
+}
