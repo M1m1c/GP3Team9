@@ -41,6 +41,6 @@ public:
 	float surfaceLevelHeight = 0;
 	
 	UPROPERTY(BlueprintType, EditAnywhere)
-	// The shader currently requires using 3 waves! No more, no less!
+	// The shader currently requires using 5 waves! No more, no less!
 	TArray<FWaveValues> waves;
 };

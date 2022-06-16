@@ -35,7 +35,7 @@ protected:
 	float submergedDivider = 0.25f;
 	float massMultiplier = 0.4f;
 
-	class UStaticMeshComponent* boatBody;
+	class UStaticMeshComponent* floatBody;
 	class UWorld* world;
 
 	bool initalized = false;

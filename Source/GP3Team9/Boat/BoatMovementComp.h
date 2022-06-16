@@ -6,17 +6,18 @@
 #include "DamagableSystem.h"
 #include "BoatMovementComp.generated.h"
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class GP3TEAM9_API UBoatMovementComp : public UActorComponent, public IDamagableSystem
 {
 	GENERATED_BODY()
 
-public:	
+public:
 	UBoatMovementComp();
 
 	void Initalize();
 
-	bool Initalized = false;
+	bool bInitalized = false;
 
 	void AllowGearChange();
 	void DisallowGearChange();
@@ -24,6 +25,7 @@ public:
 	void ReadGearChange(float value);
 
 	void SetGear(int newGear);
+	int GetGear();
 
 	void ReadTurning(float value);
 
@@ -31,42 +33,55 @@ public:
 	virtual void DisableSystem() override;
 	virtual void EnableSystem() override;
 	virtual void UpdateCrewCount(int newCrewCount) override;
-	
+
 	UPROPERTY(EditDefaultsOnly)
-	float turnSpeed = 80.f;
+		float turnSpeed = 80.f;
+
+	void IncreaseCollTurnAdditive(float valueToAdd);
 
 protected:
 
+	void VeerAwayFromObstacle(FHitResult& hit, FVector& ownerLocation, float DeltaTime);
+
+	void PushOtherBoat(class ABoatPawn* otherBoat, FVector& ownerLocation, float force, float DeltaTime);
+
 	float GetUpdatedRotAxis(float DeltaTime, float speed, float& velocity, float input, bool bAccCondition);
 
-	float GetRotVelocity(float DeltaTime, float currentVel,float input, bool bAccCondition);
+	float GetRotVelocity(float DeltaTime, float currentVel, float input, bool bAccCondition);
+
+	void UpdateGearClamp();
 
 	UPROPERTY(EditDefaultsOnly)
-	float maxSpeed = 500.0f;
+		float maxSpeed = 500.0f;
 
 
 	UPROPERTY(BlueprintReadOnly)
-	float moveVelocity = .0f;
+		float moveVelocity = .0f;
 
 	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
-	float velDecelerationSpeed = 0.2f;
+		float velDecelerationSpeed = 0.2f;
 
 	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
-	float velAccelerationSpeed = 0.3f;
+		float velAccelerationSpeed = 0.3f;
 
 	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "0.99"))
-	float turnDecelerationSpeed = 0.01f;
+		float turnDecelerationSpeed = 0.01f;
 
 	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
-	float turnAccelerationSpeed = 0.8f;
+		float turnAccelerationSpeed = 0.8f;
 
 	UPROPERTY(EditDefaultsOnly)
 		float maxMeshRoll = 15.0f;
+
+	UPROPERTY(EditDefaultsOnly)
+		// 1-3. 1 small, 3 big.
+		int boatSize = 1;
 
 	float throttle;
 	float turnDirection;
 	float collTurnAdditive = 0.f;
 
+	bool bDisabled = false;
 	bool bAllowGearChange = false;
 	bool bOnChangedGears = false;
 	TArray<float> throttleGears = { -0.45f,0.f,0.45f,0.7f,1.f };
@@ -84,12 +99,22 @@ protected:
 	class UStaticMeshComponent* body;
 	class UCapsuleComponent* pushCollider;
 	class USceneComponent* mesh;
+	class UIceBreakerComp* iceBreakerComp;
 
-public:	
+	UPROPERTY()
+	TArray<FVector> pushForces;
+
+public:
 
 	void UpdateBoatRotation(float DeltaTime);
 
 	void UpdateMeshHolderRoll();
 
 	void UpdateBoatMovement(float DeltaTime);
+
+	FHitResult AttemptMoveBoat(FVector& velocity, FVector& accumuliativePush, bool bIgnoreSweep);
+
+	void AddPushForce(FVector forceVector);
+
+	int GetBoatSize();
 };

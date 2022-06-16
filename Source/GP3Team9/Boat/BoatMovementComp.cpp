@@ -3,6 +3,9 @@
 #include "BoatMovementComp.h"
 
 #include "BoatPawn.h"
+#include "IceBreakerComp.h"
+#include "GP3Team9/Ice/GP3IceSlab.h"
+#include "GP3Team9/Ice/GP3IceChunk.h"
 
 #include "Components/CapsuleComponent.h"
 
@@ -20,8 +23,11 @@ void UBoatMovementComp::Initalize()
 	if (!ensure(pushCollider)) { return; }
 	mesh = owner->meshHolder;
 	if (!ensure(mesh)) { return; }
+	iceBreakerComp = owner->iceBreakerComp;
+	if (!ensure(iceBreakerComp)) { return; }
+	UpdateGearClamp();
 
-	Initalized = true;
+	bInitalized = true;
 }
 
 void UBoatMovementComp::AllowGearChange()
@@ -37,8 +43,8 @@ void UBoatMovementComp::DisallowGearChange()
 
 void UBoatMovementComp::ReadGearChange(float value)
 {
-	if (!bAllowGearChange) { return; }
-	if (FMath::IsNearlyZero(value))
+
+	if (FMath::Abs(value) < 0.5f)
 	{
 		bOnChangedGears = false;
 		return;
@@ -46,29 +52,35 @@ void UBoatMovementComp::ReadGearChange(float value)
 	else if (bOnChangedGears) { return; }
 
 	bOnChangedGears = true;
-
+	int newGear = gearIndex;
 	auto bOnLastGear = gearIndex == gearClamp;
 	auto bOnFirstGear = gearIndex == 0;
 	if (value > 0.f && !bOnLastGear) {
-		gearIndex++;
+		newGear++;
 	}
 	else if (value < 0.f && !bOnFirstGear)
 	{
-		gearIndex--;
+		newGear--;
 	}
 	else
 	{
 		return;
 	}
-	SetGear(gearIndex);
+	SetGear(newGear);
 }
 
 void UBoatMovementComp::SetGear(int newGear)
 {
-	gearIndex = FMath::Clamp(newGear, 0, gearClamp);
-	owner->OnGearChange(gearIndex);
+
+	auto newIndex = FMath::Clamp(newGear, 0, gearClamp);
+	if (newIndex != gearIndex) { owner->OnGearChange(newIndex); }
+	gearIndex = newIndex;
 	throttle = throttleGears[gearIndex];
-	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Gear Changed to: %d"), gearIndex));
+}
+
+int UBoatMovementComp::GetGear()
+{
+	return gearIndex;
 }
 
 void UBoatMovementComp::ReadTurning(float value)
@@ -91,16 +103,38 @@ void UBoatMovementComp::DisableSystem()
 {
 	gearClamp = 2;
 	SetGear(gearIndex);
+	bDisabled = true;
 }
 
 void UBoatMovementComp::EnableSystem()
 {
-	gearClamp = throttleGears.Num() - 1;
+	bDisabled = false;
+	UpdateGearClamp();
 }
 
 void UBoatMovementComp::UpdateCrewCount(int newCrewCount)
 {
 	crewCount = newCrewCount;
+	UpdateGearClamp();
+}
+
+void UBoatMovementComp::UpdateGearClamp()
+{
+	if (bDisabled) { return; }
+	if (crewCount < 2)
+	{
+		gearClamp = 2;
+	}
+	else if (crewCount < 4)
+	{
+		gearClamp = 3;
+	}
+	else
+	{
+		gearClamp = throttleGears.Num() - 1;
+	}
+
+	SetGear(gearIndex);
 }
 
 void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
@@ -124,26 +158,39 @@ void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
 	auto velocity = direction * force;
 	while (RemainingTime > 0.f && ++Iterations < 10)
 	{
-		FHitResult hit;
 
-		pushCollider->AddWorldOffset(velocity, true, &hit);
 
-		auto colliderLocation = pushCollider->GetComponentLocation();
-		owner->SetActorLocation(FVector(colliderLocation.X, colliderLocation.Y, owner->GetActorLocation().Z));
+		FVector accumuliativePush = FVector::ZeroVector;
+		if (pushForces.Num())
+		{
+			for (int i = pushForces.Num() - 1; i >= 0; i--)
+			{
+				accumuliativePush += pushForces[i];
+				pushForces.RemoveAt(i);
+			}
+		}
 
+		auto hit = AttemptMoveBoat(velocity, accumuliativePush, false);
 		auto ownerLocation = owner->GetActorLocation();
-		auto bodyLocation = body->GetComponentLocation();
-
-		auto newWorldLocaiton = FVector(
-			ownerLocation.X,
-			ownerLocation.Y,
-			bodyLocation.Z);
-
-		body->SetWorldLocation(newWorldLocaiton);
 
 
 		if (hit.bBlockingHit)
 		{
+			owner->ApplyCollisionShake(0.5f);
+
+			if (iceBreakerComp->IsIceBreakerComplete())
+			{
+				auto IceChunk = Cast<AGP3IceChunk>(hit.Actor);
+				auto IceSlab = Cast<AGP3IceSlab>(hit.Actor);
+
+				if (IceChunk || IceSlab)
+				{
+					AttemptMoveBoat(velocity, accumuliativePush, true);
+					Iterations = 10;
+					continue;
+				}
+			}
+
 			auto normal2D = FVector(hit.Normal.X, hit.Normal.Y, 0.f);
 
 			if (hit.bStartPenetrating)
@@ -156,19 +203,27 @@ void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
 
 				if (!FMath::IsNearlyZero(moveVelocity))
 				{
-					auto hitLocation2D = FVector(hit.Location.X, hit.Location.Y, 0.f);
-					auto ownerLocation2D = FVector(ownerLocation.X, ownerLocation.Y, 0.f);
-
-					auto delta = FVector(hitLocation2D - ownerLocation2D).GetSafeNormal();
-					auto cross = FVector::CrossProduct(delta, owner->GetActorForwardVector());
-
-					auto dir = (cross.Z < 0.f ? DeltaTime : -DeltaTime) * 3.f;
-					collTurnAdditive = FMath::Clamp(collTurnAdditive + dir, -2.f, 2.f);
-
+					VeerAwayFromObstacle(hit, ownerLocation, DeltaTime);
 				}
 
 				RemainingTime -= RemainingTime * hit.Time;
 			}
+
+			auto other = hit.GetActor();
+			if (other && !FMath::IsNearlyZero(moveVelocity))
+			{
+				auto otherBoat = Cast<ABoatPawn>(other);
+				if (otherBoat)
+				{
+					PushOtherBoat(otherBoat, ownerLocation, force, DeltaTime);
+				}
+				else
+				{
+					owner->ApplyCollisionDamage(10.f);
+					if (!FMath::IsNearlyZero(moveVelocity) && (moveVelocity > 0.f && gearIndex > 1)) { moveVelocity = 0.3f; }
+				}
+			}
+
 		}
 		else
 		{
@@ -180,6 +235,85 @@ void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
 	}
 }
 
+FHitResult UBoatMovementComp::AttemptMoveBoat(FVector& velocity, FVector& accumuliativePush, bool bIgnoreSweep)
+{
+	FHitResult hit;
+	if (!bIgnoreSweep)
+	{
+		pushCollider->AddWorldOffset(velocity + accumuliativePush, true, &hit);
+	}
+	else
+	{
+		pushCollider->AddWorldOffset(velocity + accumuliativePush);
+	}
+
+	auto colliderLocation = pushCollider->GetComponentLocation();
+	owner->SetActorLocation(FVector(colliderLocation.X, colliderLocation.Y, owner->GetActorLocation().Z));
+
+	auto ownerLocation = owner->GetActorLocation();
+	auto bodyLocation = body->GetComponentLocation();
+
+	auto newWorldLocaiton = FVector(
+		ownerLocation.X,
+		ownerLocation.Y,
+		bodyLocation.Z);
+
+	body->SetWorldLocation(newWorldLocaiton);
+
+	return hit;
+}
+
+void UBoatMovementComp::AddPushForce(FVector forceVector)
+{
+	pushForces.Add(forceVector);
+}
+
+int UBoatMovementComp::GetBoatSize()
+{
+	return boatSize;
+}
+
+void UBoatMovementComp::VeerAwayFromObstacle(FHitResult& hit, FVector& ownerLocation, float DeltaTime)
+{
+	auto hitLocation2D = FVector(hit.Location.X, hit.Location.Y, 0.f);
+	auto ownerLocation2D = FVector(ownerLocation.X, ownerLocation.Y, 0.f);
+
+	auto delta = FVector(hitLocation2D - ownerLocation2D).GetSafeNormal();
+	auto cross = FVector::CrossProduct(delta, owner->GetActorForwardVector());
+
+	auto dir = (cross.Z < 0.f ? DeltaTime : -DeltaTime) * 3.f;
+	collTurnAdditive = FMath::Clamp(collTurnAdditive + dir, -2.f, 2.f);
+}
+
+void UBoatMovementComp::PushOtherBoat(ABoatPawn* otherBoat, FVector& ownerLocation, float force, float DeltaTime)
+{
+	auto otherSize = otherBoat->boatMovementComp->GetBoatSize();
+	auto sizeDifference = FMath::Clamp(boatSize, 1, boatSize) / FMath::Clamp(otherSize, 1, otherSize);
+
+	auto safeForward = owner->GetActorForwardVector().GetSafeNormal();
+	auto otherSafeRight = otherBoat->GetActorRightVector().GetSafeNormal();
+
+	auto forwardDot = FVector::DotProduct(safeForward, otherSafeRight);
+
+	if (forwardDot > 0.8f || forwardDot < -0.8f)
+	{
+		auto otherLocation2D = FVector(otherBoat->GetActorLocation().X, otherBoat->GetActorLocation().Y, 0.f);
+		auto ownerLocation2D = FVector(ownerLocation.X, ownerLocation.Y, 0.f);
+
+		auto deltaLocation = FVector(otherLocation2D - ownerLocation2D).GetSafeNormal();
+
+		otherSafeRight = (forwardDot > 0.f ? otherSafeRight : -otherSafeRight);
+
+		auto sideCrossZ = FVector::CrossProduct(
+			otherSafeRight,
+			deltaLocation).GetSafeNormal().Z;
+
+		auto turnDir = (sideCrossZ > 0.f ? DeltaTime : -DeltaTime) * moveVelocity * (15.f * (float)sizeDifference);
+		otherBoat->boatMovementComp->IncreaseCollTurnAdditive(turnDir);
+		otherBoat->ApplyCollisionDamage((50.f * FMath::Abs(moveVelocity)) * sizeDifference);
+	}
+	otherBoat->boatMovementComp->AddPushForce((force * (float)sizeDifference) * safeForward);
+}
 
 void UBoatMovementComp::UpdateBoatRotation(float DeltaTime)
 {
@@ -207,6 +341,11 @@ void UBoatMovementComp::UpdateMeshHolderRoll()
 	auto angle = maxMeshRoll + FMath::Abs(collTurnAdditive);
 	auto lerpRoll = FMath::Lerp(-angle, angle, alphaRoll);
 	mesh->SetRelativeRotation(FQuat(FRotator(0.f, 0.f, lerpRoll)));
+}
+
+void UBoatMovementComp::IncreaseCollTurnAdditive(float valueToAdd)
+{
+	collTurnAdditive = FMath::Clamp(collTurnAdditive + valueToAdd, -2.f, 2.f);
 }
 
 float UBoatMovementComp::GetUpdatedRotAxis(float DeltaTime, float speed, float& velocity, float input, bool bAccCondition)

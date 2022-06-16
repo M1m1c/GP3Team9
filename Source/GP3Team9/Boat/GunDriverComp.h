@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "BoatEnums.h"
 #include "GunDriverComp.generated.h"
 
 
@@ -14,13 +15,17 @@ class GP3TEAM9_API UGunDriverComp : public UActorComponent
 public:
 	UGunDriverComp();
 
-	void SetTarget(AActor* newTarget);
+	void SetTarget(AController* newTarget);
 
 	void AimLeftGuns();
 	void AimRightGuns();
 	void FireLeftGuns();
 	void FireRightGuns();
 	void FireSwivelGun();
+
+	void StopFireLeftGuns();
+	void StopFireRightGuns();
+	void StopFireSwivelGun();
 
 	void FireLeftGunsAtLocation(FVector location);
 
@@ -30,11 +35,15 @@ public:
 
 	TArray<class IDamagableSystem*> GetAllGunSystems();
 
+	TMap<EGunSlotPosition, class AShipGun*> GetEachDirectionShipGuns();
+
 	void Initalize(class USceneComponent* camHolder);
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 
+
+	void DestroyGuns();
 
 protected:
 
@@ -43,6 +52,18 @@ protected:
 	void SpawnPortGun(class UPortGunSlot* slot, TArray<class AShipGun*>& shipGunList);
 
 	void UpdatePortGunRotation(bool condition, float DeltaTime, float gunAngle, float defaultYaw, TArray<class UPortGunSlot*> slots);
+
+	void UpdateShowAimingIndicator(bool condition, TArray<AShipGun*> guns);
+
+	void FireArrayOfGuns(TArray<AShipGun*> guns, float traumaToAdd);
+
+	void FireSingleShipGun(AShipGun* gun, float traumaToAdd);
+
+	void RotateGunsToFaceTargetController();
+
+	void RotateGunsToLookWithCamera(float DeltaTime);
+
+	class UCameraShakeComp* cameraShaker;
 
 	UPROPERTY(EditAnywhere)
 		TSubclassOf<class AShipGun> swivelGunBP;
@@ -85,7 +106,12 @@ protected:
 	TArray<class AShipGun*> rightShipGuns;
 
 	TArray<class IDamagableSystem*> allGunSystems;
+	TMap<EGunSlotPosition,class AShipGun*> eachDirectionShipGuns;
 
-	AActor* target = nullptr;
+	AController* target = nullptr;
 	bool initalized = false;
+
+	bool bFiringSwivel = false;
+	bool bFiringLeft = false;
+	bool bFiringRight = false;
 };

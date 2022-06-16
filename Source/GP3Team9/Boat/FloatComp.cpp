@@ -2,7 +2,7 @@
 
 
 #include "FloatComp.h"
-#include "BoatPawn.h"
+#include "Floatable.h"
 
 #include "GP3Team9/Nelson/WaveHeightmap.h"
 
@@ -33,11 +33,11 @@ void UFloatComp::Initalize(UWaveHeightmap* waveMap, float compCount,float grav,f
 	auto owner = GetOwner();
 	if (!ensure(owner)) { return; }
 
-	auto boat = Cast<ABoatPawn>(owner);
-	if (!ensure(boat)) { return; }
+	auto floatable = Cast<IFloatable>(owner);
+	if (!ensure(floatable)) { return; }
 
-	boatBody = boat->boatBody;
-	if (!ensure(boatBody)) { return; }
+	floatBody = floatable->GetFloatBody();
+	if (!ensure(floatBody)) { return; }
 
 	initalized = true;
 }
@@ -72,10 +72,10 @@ void UFloatComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 	auto location = GetComponentLocation();
 	auto direction = FVector::UpVector;
 
-	auto speedUpDelta = world->DeltaTimeSeconds * boatBody->GetMass() * massMultiplier;
+	auto speedUpDelta = world->DeltaTimeSeconds * floatBody->GetMass() * massMultiplier;
 
 	auto gravForce = FVector(0.f, 0.f, gravity * gravityAccel * speedUpDelta);
-	boatBody->AddForceAtLocation(gravForce / floatingCompCount, location);
+	floatBody->AddForceAtLocation(gravForce / floatingCompCount, location);
 
 	auto waveHeight = waveHeightMapAsset->GetWaveValue(location, world->GetTimeSeconds());
 	//UE_LOG(LogTemp, Warning, TEXT("%s WaveHeight is: %f"), *GetName(), waveHeight);
@@ -90,7 +90,7 @@ void UFloatComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 		auto submergedDist = waveDepth * waveDepth;
 		auto floatingCounterForce = FMath::Abs(gravity) * submergedDist * speedUpDelta;
 		auto forceDir = FVector(0.f, 0.f, floatingCounterForce);
-		boatBody->AddForceAtLocation(forceDir, location);
+		floatBody->AddForceAtLocation(forceDir, location);
 	}
 	else
 	{

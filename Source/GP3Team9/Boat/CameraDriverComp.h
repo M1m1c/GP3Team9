@@ -16,7 +16,7 @@ public:
 
 	void Initalize(class USceneComponent* holder, class USpringArmComponent* arm);
 
-	bool Initalized = false;
+	bool bInitalized = false;
 
 	void ReadCameraHorizontal(float value);
 

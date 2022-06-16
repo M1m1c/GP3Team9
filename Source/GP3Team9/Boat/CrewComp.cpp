@@ -3,9 +3,53 @@
 
 #include "HealthSection.h"
 
+#include "BoatPawn.h"
+
 UCrewComp::UCrewComp()
 {
 	PrimaryComponentTick.bCanEverTick = true;
+}
+
+void UCrewComp::Initalize()
+{
+	totalCrew = crewReserve;
+
+	auto owner = GetOwner();
+	if (!ensure(owner)) { return; }
+	boatPawn = Cast<ABoatPawn>(owner);
+	if (!ensure(boatPawn)) { return; }
+	auto sectionColliders = owner->GetComponentsByClass(UHealthSection::StaticClass());
+
+	for (auto item : sectionColliders)
+	{
+		auto section = Cast<UHealthSection>(item);
+		switch (section->SectionPosition)
+		{
+		default:
+			break;
+		case EHealthSectionPosition::Left:
+			crewableSections.Add(EHealthSectionPosition::Left, section);
+			break;
+		case EHealthSectionPosition::Right:
+			crewableSections.Add(EHealthSectionPosition::Right, section);
+			break;
+		case EHealthSectionPosition::Front:
+			crewableSections.Add(EHealthSectionPosition::Front, section);
+			break;
+		case EHealthSectionPosition::Back:
+			crewableSections.Add(EHealthSectionPosition::Back, section);
+			break;
+		}
+	}
+
+	for (auto startCrew : startingCrewInSections)
+	{
+		auto key = startCrew.Key;
+		if (crewableSections.Contains(key))
+		{
+			crewableSections[key]->ChangeCrewCount(startCrew.Value);
+		}
+	}
 }
 
 void UCrewComp::MoveCrewMemberX(float xDireciton)
@@ -39,6 +83,28 @@ void UCrewComp::MoveCrewMemberY(float yDireciton)
 void UCrewComp::AddNewCrew(int amountToIncrease)
 {
 	crewReserve += amountToIncrease;
+	totalCrew += amountToIncrease;
+	if (totalCrew > crewRequiredToLevel)
+	{
+		boatPawn->LevelUpBoat();
+	}
+	boatPawn->OnNewCrewAddedToReserve();
+}
+
+void UCrewComp::SetCrewCount(int count)
+{
+	crewReserve = count;
+	totalCrew = count;
+	for (auto section : crewableSections)
+	{
+		section.Value->ChangeCrewCount(-100);
+	}
+	boatPawn->OnNewCrewAddedToReserve();
+}
+
+int UCrewComp::GetCrewCount()
+{
+	return totalCrew;
 }
 
 void UCrewComp::MoveCrew(EHealthSectionPosition systemPosDirection, EHealthSectionPosition InvertedSystemPosDirection)
@@ -50,10 +116,7 @@ void UCrewComp::MoveCrew(EHealthSectionPosition systemPosDirection, EHealthSecti
 		crewReserve--;
 		sectionToMoveTo->ChangeCrewCount(1);
 		OnSendCrew.Broadcast((int)EHealthSectionPosition::None, (int)systemPosDirection);
-		//OnSendCrewToSection(EHealthSectionPosition::None, systemPosDirection);
-
-		//UE_LOG(LogTemp, Warning, TEXT("Crew: %s = %d |<|<|<| reserve %d"), *sectionToMoveTo->GetName(), sectionToMoveTo->GetCrewCount(), crewReserve);
-		GEngine->AddOnScreenDebugMessage(-1, 1.3f, FColor::White , FString::Printf(TEXT("Crew: %s = %d |<|<|<| reserve %d"), *sectionToMoveTo->GetName(), sectionToMoveTo->GetCrewCount(), crewReserve));
+		GEngine->AddOnScreenDebugMessage(-1, 1.3f, FColor::White, FString::Printf(TEXT("Crew: %s = %d |<|<|<| reserve %d"), *sectionToMoveTo->GetName(), sectionToMoveTo->GetCrewCount(), crewReserve));
 	}
 	else if (invertedSection->GetCrewCount() > 0)
 	{
@@ -61,8 +124,6 @@ void UCrewComp::MoveCrew(EHealthSectionPosition systemPosDirection, EHealthSecti
 		invertedSection->ChangeCrewCount(-1);
 
 		OnSendCrew.Broadcast((int)InvertedSystemPosDirection, (int)EHealthSectionPosition::None);
-		//OnSendCrewToSection(InvertedSystemPosDirection, EHealthSectionPosition::None);
-		//UE_LOG(LogTemp, Warning, TEXT("Crew: %s = %d |>|>|>| reserve %d"),*invertedSection->GetName(), invertedSection->GetCrewCount(), crewReserve);
 		GEngine->AddOnScreenDebugMessage(-1, 1.3f, FColor::White, FString::Printf(TEXT("Crew: %s = %d |>|>|>| reserve %d"), *invertedSection->GetName(), invertedSection->GetCrewCount(), crewReserve));
 	}
 
@@ -72,31 +133,6 @@ void UCrewComp::MoveCrew(EHealthSectionPosition systemPosDirection, EHealthSecti
 void UCrewComp::BeginPlay()
 {
 	Super::BeginPlay();
-
-	auto owner = GetOwner();
-	auto sectionColliders = owner->GetComponentsByClass(UHealthSection::StaticClass());
-
-	for (auto item : sectionColliders)
-	{
-		auto section = Cast<UHealthSection>(item);
-		switch (section->SectionPosition)
-		{
-		default:
-			break;
-		case EHealthSectionPosition::Left:
-			crewableSections.Add(EHealthSectionPosition::Left, section);
-			break;
-		case EHealthSectionPosition::Right:
-			crewableSections.Add(EHealthSectionPosition::Right, section);
-			break;
-		case EHealthSectionPosition::Front:
-			crewableSections.Add(EHealthSectionPosition::Front, section);
-			break;
-		case EHealthSectionPosition::Back:
-			crewableSections.Add(EHealthSectionPosition::Back, section);
-			break;
-		}
-	}
 }
 
 void UCrewComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)

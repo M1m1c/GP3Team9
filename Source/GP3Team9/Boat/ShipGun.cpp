@@ -13,21 +13,28 @@ AShipGun::AShipGun()
 	SetRootComponent(root);
 	firingPoint = CreateDefaultSubobject<USceneComponent>(FName("FiringPoint"));
 	firingPoint->SetupAttachment(root);
+
+	aimingIndicator = CreateDefaultSubobject<UStaticMeshComponent>(FName("AimingIndicator"));
+	aimingIndicator->SetupAttachment(firingPoint);
+	aimingIndicator->SetRelativeLocation(FVector(50.f, 0.f, 0.f));
+	aimingIndicator->SetHiddenInGame(true);
+	firingPoint->SetRelativeScale3D(FVector(90.f, 0.5f, 0.5f));
 }
 
 void AShipGun::Initalize(AActor* boatOwner, EHealthSectionPosition section)
 {
+	aimingIndicator->SetCollisionProfileName(FName("NoCollision"));
 	owner = boatOwner;
 	if (!ensure(owner)) { return; }
 	sectionPosition = section;
 	initalized = true;
 }
 
-void AShipGun::FireGun()
+bool AShipGun::FireGun()
 {
-	if (!initalized) { return; }
-	if (!bSystemActive) { return; }
-	if (bIsOnCoolDown) { return; }
+	if (!initalized) { return false; }
+	if (!bSystemActive) { return false; }
+	if (bIsOnCoolDown) { return false; }
 	bIsOnCoolDown = true;
 	currentCoolDown = maxCoolDown;
 	bAiming = false;
@@ -35,7 +42,7 @@ void AShipGun::FireGun()
 	auto start = firingPoint->GetComponentLocation();
 	auto forward = firingPoint->GetForwardVector();
 	auto end = start + (forward * maxRange);
-	DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 2.f, 0, 100.f);
+	//DrawDebugLine(GetWorld(), start, end, FColor::Red, false, 2.f, 0, 5.f);
 	TArray<FHitResult> OutHits;
 	FCollisionShape MyColSphere = FCollisionShape::MakeSphere(100.0f);
 	bool isHit = GetWorld()->SweepMultiByChannel(OutHits, start, end, FQuat::Identity, ECC_GameTraceChannel1, MyColSphere);
@@ -51,10 +58,11 @@ void AShipGun::FireGun()
 				healthSection->SectionApplyDamage(damage);
 			}
 			OnHit(hit.Location);
-			DrawDebugSphere(GetWorld(), hit.Location, 100.f, 4, FColor::Purple, false, 2.f);
+			//DrawDebugSphere(GetWorld(), hit.Location, 100.f, 4, FColor::Purple, false, 2.f);
 			break;
 		}
 	}
+	return true;
 }
 
 void AShipGun::AimGun()
@@ -64,7 +72,7 @@ void AShipGun::AimGun()
 
 float AShipGun::GetCoolDownProgress()
 {
-	return maxCoolDown / currentCoolDown;
+	return currentCoolDown / maxCoolDown;
 }
 
 void AShipGun::SetGunFirePointRotation(FRotator rotation)
@@ -81,8 +89,10 @@ void AShipGun::AlignFirePointToHorizon(float DeltaTime)
 {
 	auto speed = DeltaTime * alignmentSpeed;
 	auto  firePointRot = firingPoint->GetComponentRotation();
-	auto newRot = FQuat(FRotator(0.f, firePointRot.Yaw, firePointRot.Roll));
+	auto newRot = FQuat(FRotator(0.f, firePointRot.Yaw, 0.f));
 	firingPoint->SetWorldRotation(FQuat::Slerp(FQuat(firePointRot),newRot,speed));
+	auto relative = firingPoint->GetRelativeRotation();
+	firingPoint->SetRelativeRotation(FRotator(relative.Pitch,0.f,0.f));
 }
 
 EHealthSectionPosition AShipGun::GetSectionPosition()

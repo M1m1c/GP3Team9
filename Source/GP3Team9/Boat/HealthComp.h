@@ -6,6 +6,9 @@
 #include "HealthComp.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FBoatDeath);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSecHit);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSecDestroyedRef, class UHealthSection*, sectionDestroyed);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSecRepairedRef, class UHealthSection*, sectionRepaired);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class GP3TEAM9_API UHealthComp : public UActorComponent
@@ -17,13 +20,20 @@ public:
 	void Initalize(class UGunDriverComp* gunDriver);
 
 	FBoatDeath OnBoatDeath;
+	FSecDestroyedRef OnSectionDestroyed;
+	FSecRepairedRef OnSectionRepaired;
+	FSecHit OnSectionHit;
+
+	void UpgradeArmor(float armorIncrease);
+
+	UFUNCTION(BlueprintCallable)
+	void ApplyDamageToAllSections(float damage);
 
 protected:
-	virtual void BeginPlay() override;
-
-	
-
+	virtual void BeginPlay() override;	
+	UPROPERTY(BlueprintReadOnly)
 	TArray<class UHealthSection*> healthSections;
+	UPROPERTY(BlueprintReadOnly)
 	TArray<class UHealthSection*> destroyedHealthSections;
 
 	UFUNCTION()
@@ -33,10 +43,8 @@ protected:
 	UFUNCTION()
 	void RemoveDestroyedSection(class UHealthSection* sectionRepaired);
 
-	bool initalized = false;
+	UFUNCTION()
+		void SectionHit();
 
-public:	
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
-		
+	bool initalized = false;	
 };

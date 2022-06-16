@@ -7,7 +7,7 @@
 
 UHealthComp::UHealthComp()
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 void UHealthComp::Initalize(UGunDriverComp* gunDriver)
@@ -50,6 +50,7 @@ void UHealthComp::Initalize(UGunDriverComp* gunDriver)
 		section->OnSectionDestroyedWithRef.AddDynamic(this, &UHealthComp::AddDestroyedSection);
 		section->OnSectionRepairedWithRef.AddDynamic(this, &UHealthComp::RemoveDestroyedSection);
 		section->OnDestroyedDamageTaken.AddDynamic(this, &UHealthComp::DestroyedDamageDistribution);
+		section->OnSectionHit.AddDynamic(this, &UHealthComp::SectionHit);
 	}
 
 	initalized = true;
@@ -66,7 +67,6 @@ void UHealthComp::DestroyedDamageDistribution(float damageTaken)
 	//TODO if sections destroyed equals health sections num then kill boat
 	if (healthSections.Num() == destroyedHealthSections.Num()) 
 	{
-		UE_LOG(LogTemp, Warning, TEXT("BOAT DESTROYED!"));
 		OnBoatDeath.Broadcast();
 		return;
 	}
@@ -89,6 +89,7 @@ void UHealthComp::AddDestroyedSection(UHealthSection* sectionDestroyed)
 		if (destroyedHealthSections.Contains(sectionDestroyed)) { return; }
 	}
 	destroyedHealthSections.Add(sectionDestroyed);
+	OnSectionDestroyed.Broadcast(sectionDestroyed);
 }
 
 void UHealthComp::RemoveDestroyedSection(UHealthSection* sectionRepaired)
@@ -99,11 +100,24 @@ void UHealthComp::RemoveDestroyedSection(UHealthSection* sectionRepaired)
 		if (!destroyedHealthSections.Contains(sectionRepaired)) { return; }
 	}
 	destroyedHealthSections.Remove(sectionRepaired);
+	OnSectionRepaired.Broadcast(sectionRepaired);
 }
 
-void UHealthComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UHealthComp::SectionHit()
 {
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	OnSectionHit.Broadcast();
+}
 
+void UHealthComp::UpgradeArmor(float armorIncrease)
+{
+	/*for (auto section : healthSections)
+	{
+		section->IncreaseArmor(armorIncrease);
+	}*/
+}
+
+void UHealthComp::ApplyDamageToAllSections(float damage)
+{
+	DestroyedDamageDistribution(damage);
 }
 

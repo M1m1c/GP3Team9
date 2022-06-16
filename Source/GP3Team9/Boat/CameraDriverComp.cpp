@@ -25,7 +25,7 @@ void UCameraDriverComp::Initalize(USceneComponent* holder, USpringArmComponent* 
 	owner = Cast<ABoatPawn>(GetOwner());
 	if (!ensure(owner)) { return; }
 
-	Initalized = true;
+	bInitalized = true;
 }
 
 
@@ -33,7 +33,7 @@ void UCameraDriverComp::Initalize(USceneComponent* holder, USpringArmComponent* 
 void UCameraDriverComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	if (!Initalized) { return; }
+	if (!bInitalized) { return; }
 
 	UpdateAiming(DeltaTime);
 
@@ -106,13 +106,24 @@ void UCameraDriverComp::UpdateResetCamera(float DeltaTime)
 
 void UCameraDriverComp::UpdateCameraRotation(float DeltaTime)
 {
-	FRotator newArmRotation = FRotator(CameraVertical * CameraRotationSpeed, 0.f, 0.f) * DeltaTime;
+	float VerticalInput = CameraVertical;
+	if (cameraArm->GetComponentRotation().Pitch < -50)
+	{
+		VerticalInput = FMath::Clamp(VerticalInput, 0.0f, 1.0f);
+	}
+	if (cameraArm->GetComponentRotation().Pitch > -5)
+	{
+		VerticalInput = FMath::Clamp(VerticalInput, -1.0f, 0.0f);
+	}
+	
+	FRotator newArmRotation = FRotator(VerticalInput * CameraRotationSpeed, 0.f, 0.f) * DeltaTime;
 	FQuat quatArmRotation = FQuat(newArmRotation);
 	cameraArm->AddRelativeRotation(quatArmRotation);
 
 	FRotator newHolderRotation = FRotator(0.f, CameraHorizontal * CameraRotationSpeed, 0.f) * DeltaTime;
 	FQuat quatHolderRotation = FQuat(newHolderRotation);
 	cameraHolder->AddRelativeRotation(quatHolderRotation);
+
 }
 
 void UCameraDriverComp::UpdateCameraZoom(float DeltaTime)

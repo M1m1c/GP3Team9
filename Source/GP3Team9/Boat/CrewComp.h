@@ -18,11 +18,18 @@ public:
 
 	UCrewComp();
 
+	void Initalize();
+
 	void MoveCrewMemberX(float xDireciton);
 	void MoveCrewMemberY(float yDireciton);
 
 	UFUNCTION(BlueprintCallable)
 	void AddNewCrew(int amountToIncrease);
+
+	void SetCrewCount(int count);
+
+	UFUNCTION(BlueprintCallable)
+	int GetCrewCount();
 
 	FCrewSend OnSendCrew;
 
@@ -37,10 +44,26 @@ protected:
 	TMap<EHealthSectionPosition, class UHealthSection*> crewableSections;
 
 	UPROPERTY(EditDefaultsOnly)
-	int maxCrewInSystem = 5;
+	int crewRequiredToLevel = 5;
+
+	UPROPERTY(EditDefaultsOnly)
+	int maxCrewInSystem = 10;
 
 	UPROPERTY(EditDefaultsOnly)
 	int crewReserve = 2;
+
+	int totalCrew = 2;
+
+	UPROPERTY(EditAnywhere)
+		//!!!only set the numbers on these on enemy ships!!!
+		//this is how many crew each section will start with
+		TMap<EHealthSectionPosition,int> startingCrewInSections 
+	{
+			{EHealthSectionPosition::Front,0},
+			{EHealthSectionPosition::Back,0},
+			{EHealthSectionPosition::Left,0},
+			{EHealthSectionPosition::Right,0},
+	};
 
 	UPROPERTY(EditDefaultsOnly)
 		float repairPercentageIncrease = 0.02f;
@@ -52,5 +75,5 @@ protected:
 	bool bMovedX = false;
 	bool bMovedY = false;
 
-
+	class ABoatPawn* boatPawn;
 };

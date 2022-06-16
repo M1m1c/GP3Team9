@@ -14,7 +14,7 @@ class GP3TEAM9_API AShipGun : public AActor, public IDamagableSystem
 public:	
 	AShipGun();
 	void Initalize(AActor* boatOwner, EHealthSectionPosition section);
-	void FireGun();
+	bool FireGun();
 
 	void AimGun();
 
@@ -25,6 +25,7 @@ public:
 		void OnHit(FVector hitLocation);
 
 	UFUNCTION(BlueprintCallable)
+		//returns 1 to 0 with. 0 being no cooldwon and 1 being full cooldown.
 	float GetCoolDownProgress();
 
 	void SetGunFirePointRotation(FRotator rotation);
@@ -37,21 +38,29 @@ public:
 	virtual void EnableSystem() override;
 	virtual void UpdateCrewCount(int newCrewCount) override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		class UStaticMeshComponent* aimingIndicator;
+
+	UPROPERTY(EditDefaultsOnly)
+	bool bAutomaticFire = false;
+	UPROPERTY(EditDefaultsOnly)
+	float ShakeTrauma = 1.f;
+
 protected:
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	class USceneComponent* firingPoint;
 
 	bool bIsOnCoolDown = false;
 
 	UPROPERTY(EditAnywhere)
-		float damage = 200.f;
+	float damage = 200.f;
 
 	UPROPERTY(EditAnywhere)
 	float maxCoolDown = 2.f;
 
 	UPROPERTY(EditAnywhere)
-	float maxRange = 3000.f;
+	float maxRange = 4500.f;
 
 	UPROPERTY(EditAnywhere)
 	float alignmentSpeed = 5.f;
