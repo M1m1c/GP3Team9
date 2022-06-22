@@ -24,8 +24,6 @@ public:
 	FSecRepairedRef OnSectionRepaired;
 	FSecHit OnSectionHit;
 
-	void UpgradeArmor(float armorIncrease);
-
 	UFUNCTION(BlueprintCallable)
 	void ApplyDamageToAllSections(float damage);
 

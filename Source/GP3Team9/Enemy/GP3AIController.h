@@ -44,39 +44,49 @@ public:
 
 
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY()
 	APlayerController* PlayerController = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite)
 	AActor* TargetPlayer = nullptr;
 
 	UPROPERTY()
 	FVector StartPosition;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//Enemy will turn around if he gets this far from his starting point.
 	float PerimeterRadius = 10000;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//Inside this distance, enemy will shoot.
 	float MaxAttackDistance = 5000;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//Outside this range enemy will not "see" player.
 	float MaxChasingDistance = 15000;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//Enemy will not go closer to player than this.
 	float MinDistanceToPlayer = 3000;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FHitResult HitResult;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//In degrees.
+	float SideGunAngleRange = 40;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	//Enemy will fire towards the player at a random spot within a square with these sides.
+	float TargetBoxSize = 700;
+	
+	UPROPERTY()
+	FHitResult HitResult;
+
+	UPROPERTY()
 	FVector LastKnownPlayerPosition;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	// Delay for Firing. Keep in mind, gun component also has a delay.
+	// 2 + small random secs. Keep in mind, gun component also has a delay. 
 	float SwivelGunFireDelay;
 	float SwivelGunTimeSinceLastFire = 0;
-	
-	
 };
 
 

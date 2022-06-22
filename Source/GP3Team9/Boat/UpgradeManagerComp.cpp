@@ -57,7 +57,7 @@ void UUpgradeManagerComp::ApplyUpgrade(IBoatUpgrade* newUpgrade)
 void UUpgradeManagerComp::UpgradeArmorPath(IBoatUpgrade* newUpgrade)
 {
 	auto armorUpgrade = Cast<UArmorUpgrade>(newUpgrade);
-	owner->healthComp->UpgradeArmor(armorUpgrade->ArmorValue);
+	//owner->healthComp->UpgradeArmor(armorUpgrade->ArmorValue);
 	switch (armorUpgrade->ArmorTier)
 	{
 	case EArmorTier::Tier1:

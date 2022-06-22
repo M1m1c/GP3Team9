@@ -29,7 +29,6 @@ void UCameraDriverComp::Initalize(USceneComponent* holder, USpringArmComponent* 
 }
 
 
-// Called every frame
 void UCameraDriverComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -42,7 +41,6 @@ void UCameraDriverComp::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 	{ return; }
 
 	UpdateCameraRotation(DeltaTime);
-	//UpdateCameraZoom(DeltaTime);
 	
 	UpdateResetCamera(DeltaTime);
 }

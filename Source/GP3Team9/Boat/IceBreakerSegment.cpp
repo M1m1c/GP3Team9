@@ -13,6 +13,7 @@ void AIceBreakerSegment::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AAc
 	if (!boat) { return; }
 	if (!Cast<APlayerController>(boat->GetController())) { return; }
 	bUsed = true;
+	OnPickedUp();
 	boat->iceBreakerComp->IncreaseSegments(1);
 	Destroy();
 }

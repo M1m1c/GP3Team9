@@ -23,6 +23,9 @@ public:
 	void MoveCrewMemberX(float xDireciton);
 	void MoveCrewMemberY(float yDireciton);
 
+	void EnableCrewLock();
+	void DisableCrewLock();
+
 	UFUNCTION(BlueprintCallable)
 	void AddNewCrew(int amountToIncrease);
 
@@ -49,7 +52,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	int maxCrewInSystem = 10;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	int crewReserve = 2;
 
 	int totalCrew = 2;
@@ -76,4 +79,5 @@ protected:
 	bool bMovedY = false;
 
 	class ABoatPawn* boatPawn;
+	bool bCrewLock = true;
 };

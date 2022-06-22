@@ -15,14 +15,20 @@ class GP3TEAM9_API UGunDriverComp : public UActorComponent
 public:
 	UGunDriverComp();
 
+	void SetEnable(bool bEnable);
+
+	UFUNCTION(BlueprintCallable)
 	void SetTarget(AController* newTarget);
 
 	void AimLeftGuns();
 	void AimRightGuns();
+	void FirePortGunsThatAreAiming();
 	void FireLeftGuns();
 	void FireRightGuns();
 	void FireSwivelGun();
 
+
+	void StopFirePortGuns();
 	void StopFireLeftGuns();
 	void StopFireRightGuns();
 	void StopFireSwivelGun();
@@ -34,6 +40,7 @@ public:
 	void FireSwivelGunAtLocation(FVector location);
 
 	TArray<class IDamagableSystem*> GetAllGunSystems();
+	TArray<AActor*> GetAllGuns();
 
 	TMap<EGunSlotPosition, class AShipGun*> GetEachDirectionShipGuns();
 
@@ -106,6 +113,7 @@ protected:
 	TArray<class AShipGun*> rightShipGuns;
 
 	TArray<class IDamagableSystem*> allGunSystems;
+	TArray<AActor*> allGuns;
 	TMap<EGunSlotPosition,class AShipGun*> eachDirectionShipGuns;
 
 	AController* target = nullptr;
@@ -114,4 +122,5 @@ protected:
 	bool bFiringSwivel = false;
 	bool bFiringLeft = false;
 	bool bFiringRight = false;
+	bool bEnabled = true;
 };

@@ -23,7 +23,7 @@ void AGP3IceSlab::OnComponentHit(UPrimitiveComponent* HitComponent, AActor* Othe
 	{
 		if (!boat->iceBreakerComp->IsIceBreakerComplete()) { return; }
 
-		auto Instance = GetWorld()->SpawnActor<AFloatingProp>(
+		/*auto Instance = GetWorld()->SpawnActor<AFloatingProp>(
 			IceChunkClass,
 			HitComponent->GetComponentLocation(),
 			HitComponent->GetComponentRotation());
@@ -44,7 +44,7 @@ void AGP3IceSlab::OnComponentHit(UPrimitiveComponent* HitComponent, AActor* Othe
 				IceChunk->ReplaceMaterial(Material);
 			}
 
-		}
+		}*/
 		HitComponent->DestroyComponent();
 	}
 }

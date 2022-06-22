@@ -16,7 +16,10 @@ public:
 	UIceBreakerComp();
 	bool IsIceBreakerComplete();
 	void IncreaseSegments(int amountToAdd);
+	UFUNCTION(BlueprintCallable)
 	int GetSegementCount();
+
+	void Initalize();
 protected:
 
 	virtual void BeginPlay() override;
@@ -26,5 +29,9 @@ protected:
 	UPROPERTY(EditAnywhere)
 		int segmentsRequierd = 4;
 
+	UPROPERTY(EditAnywhere)
+		bool bStartWithIceBreaker = false;
+
 	class UStaticMeshComponent* icebreakerMesh;
+	bool bInitalize = false;
 };

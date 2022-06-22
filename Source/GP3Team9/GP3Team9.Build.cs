@@ -8,7 +8,7 @@ public class GP3Team9 : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "AIModule", "Core", "CoreUObject", "Engine", "InputCore", "ApexDestruction", "DesktopPlatform" });
+		PublicDependencyModuleNames.AddRange(new string[] { "AIModule", "Core", "CoreUObject", "Engine", "InputCore" });
 
 
 		// Uncomment if you are using Slate UI

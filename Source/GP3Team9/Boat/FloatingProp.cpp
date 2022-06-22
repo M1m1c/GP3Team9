@@ -6,7 +6,6 @@
 
 AFloatingProp::AFloatingProp()
 {
-	PrimaryActorTick.bCanEverTick = true;
 
 	physicsBody = CreateDefaultSubobject<UStaticMeshComponent>(FName("physicsBody"));
 	SetRootComponent(physicsBody);
@@ -24,12 +23,12 @@ AFloatingProp::AFloatingProp()
 inline void AFloatingProp::OnComponentHit(UPrimitiveComponent* HitComponent, AActor* OtherActor,
 	UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& Hit)
 {
-	
+
 }
 
 void AFloatingProp::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	
+
 }
 
 UStaticMeshComponent* AFloatingProp::GetFloatBody()
@@ -56,10 +55,10 @@ void AFloatingProp::Tick(float DeltaTime)
 
 	if (physicsBody)
 	{
-		if (FMath::IsNearlyZero(previousDeltaTime)) { previousDeltaTime = DeltaTime; }
+		if (previousDeltaTime < 0.f) { previousDeltaTime = DeltaTime; }
 		auto fps = previousDeltaTime / 1.f;
-		physicsBody->SetLinearDamping(FMath::Clamp(FMath::Lerp(defaultLinearDamping, 50.f, fps), defaultLinearDamping, 50.f));
-		physicsBody->SetAngularDamping(FMath::Clamp(FMath::Lerp(defaultAngularDamping, 50.f, fps), defaultLinearDamping, 50.f));
+		physicsBody->SetLinearDamping(FMath::Clamp(FMath::Lerp(defaultLinearDamping, 100.f, fps), defaultLinearDamping, 100.f));
+		physicsBody->SetAngularDamping(FMath::Clamp(FMath::Lerp(defaultAngularDamping, 100.f, fps), defaultLinearDamping, 100.f));
 		previousDeltaTime = DeltaTime;
 	}
 }

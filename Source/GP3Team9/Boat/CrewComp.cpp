@@ -52,32 +52,48 @@ void UCrewComp::Initalize()
 	}
 }
 
-void UCrewComp::MoveCrewMemberX(float xDireciton)
+void UCrewComp::MoveCrewMemberX(float xDirection)
 {
-	if (FMath::IsNearlyZero(xDireciton))
+	if (FMath::IsNearlyZero(xDirection))
 	{
 		bMovedX = false;
 		return;
 	}
+
+	if (bCrewLock && (xDirection<0.9f && xDirection>-0.9f)) { return; }
+
 	if (bMovedX) { return; }
 	bMovedX = true;
-	auto systemPosDirection = xDireciton > 0.f ? EHealthSectionPosition::Right : EHealthSectionPosition::Left;
-	auto InvertedSystemPosDirection = xDireciton > 0.f ? EHealthSectionPosition::Left : EHealthSectionPosition::Right;
+	auto systemPosDirection = xDirection > 0.f ? EHealthSectionPosition::Right : EHealthSectionPosition::Left;
+	auto InvertedSystemPosDirection = xDirection > 0.f ? EHealthSectionPosition::Left : EHealthSectionPosition::Right;
 	MoveCrew(systemPosDirection, InvertedSystemPosDirection);
 }
 
-void UCrewComp::MoveCrewMemberY(float yDireciton)
+void UCrewComp::MoveCrewMemberY(float yDirection)
 {
-	if (FMath::IsNearlyZero(yDireciton))
+	if (FMath::IsNearlyZero(yDirection))
 	{
 		bMovedY = false;
 		return;
 	}
+
+	if (bCrewLock && (yDirection<0.9f && yDirection>-0.9f)) { return; }
+
 	if (bMovedY) { return; }
 	bMovedY = true;
-	auto systemPosDirection = yDireciton > 0.f ? EHealthSectionPosition::Front : EHealthSectionPosition::Back;
-	auto InvertedSystemPosDirection = yDireciton > 0.f ? EHealthSectionPosition::Back : EHealthSectionPosition::Front;
+	auto systemPosDirection = yDirection > 0.f ? EHealthSectionPosition::Front : EHealthSectionPosition::Back;
+	auto InvertedSystemPosDirection = yDirection > 0.f ? EHealthSectionPosition::Back : EHealthSectionPosition::Front;
 	MoveCrew(systemPosDirection, InvertedSystemPosDirection);
+}
+
+void UCrewComp::DisableCrewLock()
+{
+	bCrewLock = false;
+}
+
+void UCrewComp::EnableCrewLock()
+{
+	bCrewLock = true;
 }
 
 void UCrewComp::AddNewCrew(int amountToIncrease)
@@ -88,7 +104,7 @@ void UCrewComp::AddNewCrew(int amountToIncrease)
 	{
 		boatPawn->LevelUpBoat();
 	}
-	boatPawn->OnNewCrewAddedToReserve();
+	boatPawn->OnNewCrewAddedToReserve(amountToIncrease);
 }
 
 void UCrewComp::SetCrewCount(int count)
@@ -99,7 +115,7 @@ void UCrewComp::SetCrewCount(int count)
 	{
 		section.Value->ChangeCrewCount(-100);
 	}
-	boatPawn->OnNewCrewAddedToReserve();
+	boatPawn->OnNewCrewAddedToReserve(0);
 }
 
 int UCrewComp::GetCrewCount()
@@ -116,7 +132,6 @@ void UCrewComp::MoveCrew(EHealthSectionPosition systemPosDirection, EHealthSecti
 		crewReserve--;
 		sectionToMoveTo->ChangeCrewCount(1);
 		OnSendCrew.Broadcast((int)EHealthSectionPosition::None, (int)systemPosDirection);
-		GEngine->AddOnScreenDebugMessage(-1, 1.3f, FColor::White, FString::Printf(TEXT("Crew: %s = %d |<|<|<| reserve %d"), *sectionToMoveTo->GetName(), sectionToMoveTo->GetCrewCount(), crewReserve));
 	}
 	else if (invertedSection->GetCrewCount() > 0)
 	{
@@ -124,10 +139,7 @@ void UCrewComp::MoveCrew(EHealthSectionPosition systemPosDirection, EHealthSecti
 		invertedSection->ChangeCrewCount(-1);
 
 		OnSendCrew.Broadcast((int)InvertedSystemPosDirection, (int)EHealthSectionPosition::None);
-		GEngine->AddOnScreenDebugMessage(-1, 1.3f, FColor::White, FString::Printf(TEXT("Crew: %s = %d |>|>|>| reserve %d"), *invertedSection->GetName(), invertedSection->GetCrewCount(), crewReserve));
 	}
-
-
 }
 
 void UCrewComp::BeginPlay()

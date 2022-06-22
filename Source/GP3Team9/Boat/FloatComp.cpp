@@ -1,4 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "FloatComp.h"
@@ -9,10 +8,11 @@
 UFloatComp::UFloatComp()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	
+	PrimaryComponentTick.bStartWithTickEnabled = false;
+
 }
 
-void UFloatComp::Initalize(UWaveHeightmap* waveMap, float compCount,float grav,float gravAccel,float subMulti,float massMulti)
+void UFloatComp::Initalize(UWaveHeightmap* waveMap, float compCount, float grav, float gravAccel, float subMulti, float massMulti)
 {
 	waveHeightMapAsset = waveMap;
 	if (!ensure(waveHeightMapAsset))
@@ -38,6 +38,7 @@ void UFloatComp::Initalize(UWaveHeightmap* waveMap, float compCount,float grav,f
 
 	floatBody = floatable->GetFloatBody();
 	if (!ensure(floatBody)) { return; }
+
 
 	initalized = true;
 }
@@ -69,16 +70,16 @@ void UFloatComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	if (!initalized) { return; }
+
 	auto location = GetComponentLocation();
 	auto direction = FVector::UpVector;
 
 	auto speedUpDelta = world->DeltaTimeSeconds * floatBody->GetMass() * massMultiplier;
-
-	auto gravForce = FVector(0.f, 0.f, gravity * gravityAccel * speedUpDelta);
+	auto grav = gravity * gravityAccel * speedUpDelta;
+	auto gravForce = FVector(0.f, 0.f, grav);
 	floatBody->AddForceAtLocation(gravForce / floatingCompCount, location);
 
 	auto waveHeight = waveHeightMapAsset->GetWaveValue(location, world->GetTimeSeconds());
-	//UE_LOG(LogTemp, Warning, TEXT("%s WaveHeight is: %f"), *GetName(), waveHeight);
 	if (bIsFloatingActive && location.Z < waveHeight)
 	{
 		if (!FMath::IsNearlyEqual(gravityAccel, defaultGravityAccel))
@@ -86,11 +87,14 @@ void UFloatComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 			gravityAccel = defaultGravityAccel;
 		}
 
-		auto waveDepth = (waveHeight - location.Z)/ submergedDivider;
+		auto waveDepth = (waveHeight - location.Z) / submergedDivider;
 		auto submergedDist = waveDepth * waveDepth;
 		auto floatingCounterForce = FMath::Abs(gravity) * submergedDist * speedUpDelta;
-		auto forceDir = FVector(0.f, 0.f, floatingCounterForce);
+		auto posGrav = FMath::Abs(grav);
+		auto maxCounterForce = posGrav * floatingCompCount * (submergedDivider/2.f);
+		auto forceDir = FVector(0.f, 0.f, FMath::Clamp(floatingCounterForce, 0.f, maxCounterForce));
 		floatBody->AddForceAtLocation(forceDir, location);
+
 	}
 	else
 	{

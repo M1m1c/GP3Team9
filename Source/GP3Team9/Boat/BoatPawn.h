@@ -77,11 +77,18 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 		class UIceBreakerComp* iceBreakerComp;
 
-	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-		//class UUpgradeManagerComp* upgradeComp;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		class AFloatDisablerSphere* floatDisablerSphere;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		class UGP3ForceFeedbackComp* forceFeedbackComp;
+
+
 
 protected:
 	virtual void BeginPlay() override;
+
+	void SetupPlayerFloatDisabler(AController* controller);
 
 	void UpdateActorZPosition(float DeltaTime);
 
@@ -104,17 +111,24 @@ protected:
 
 	float defaultLinearDamping;
 	float defaultAngularDamping;
-	float previousDeltaTime = 0.0f;
+	float previousDeltaTime = -1.0f;
 
 	float collisionTimer = 0.f;
 	float maxCollisionTimer = 1.5f;
 
+	UPROPERTY(EditDefaultsOnly)
+		float floatDisablerSize = 600.f;
+
 public:
+	virtual void PossessedBy(AController* NewController)override;
+
 	virtual void Tick(float DeltaTime) override;
 
-	bool GetIsInCameraMode();
-
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	virtual UStaticMeshComponent* GetFloatBody() override;
+
+	bool GetIsInCameraMode();
 
 	UFUNCTION(BlueprintImplementableEvent)
 		void OnGearChange(int newThrottleGear);
@@ -123,7 +137,7 @@ public:
 		void OnSendCrewToSection(int startSection, int endSection);
 
 	UFUNCTION(BlueprintImplementableEvent)
-		void OnNewCrewAddedToReserve();
+		void OnNewCrewAddedToReserve(int crewAdded);
 
 	UFUNCTION(BlueprintImplementableEvent)
 		void OnSectionDestroyedEvent(UHealthSection* sectionAffected);
@@ -140,18 +154,25 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 		void OnBoatSwapEvent(AActor* newBoat);
 
+	UFUNCTION(BlueprintImplementableEvent)
+		void OnBoatUpgradeEvent();
+
 	void ApplyCollisionDamage(float damage);
 	void ApplyCollisionShake(float trauma);
+
+	void LevelUpBoat();
 
 	float GetLinearVelocityChange(float deltaTime, float accelSpeed);
 
 	float GetProportionalVelocityChange(float deltaTime, float currentVelocity, float accelSpeed, float decelSpeed, bool changeCondition);
 	float GetPropVelocityChangeConstantDec(float deltaTime, float currentVelocity, float accelSpeed, float decelSpeed, bool changeCondition);
 
-	virtual UStaticMeshComponent* GetFloatBody() override;
-
+	ABoatPawn* SpawnAndPossesBoat(TSubclassOf<ABoatPawn>& boatToSwapTo, FVector location, FRotator rotation, AController* myController);
 
 	void SwapBoat(TSubclassOf<ABoatPawn> boatToSwapTo);
+
+	UFUNCTION(BlueprintCallable)
+	void SwapBoat(TSubclassOf<ABoatPawn> boatToSwapTo,FVector spawnLocaiton,FRotator spawnRotation);
 
 	UFUNCTION(BlueprintCallable)
 		void DestroyBoat();
@@ -159,14 +180,11 @@ public:
 	UFUNCTION(BlueprintCallable)
 		TMap<EGunSlotPosition, class AShipGun*> GetShipGuns();
 
-	void LevelUpBoat();
+
+
 	UPROPERTY(EditDefaultsOnly)
 		TSubclassOf<ABoatPawn> NextLevelBoat;
 
 	UPROPERTY(EditAnywhere)
 		TSubclassOf<class AFloatingProp> itemToDropOnDeath;
-
-	/*UPROPERTY(EditDefaultsOnly)
-		TSubclassOf<class UArmorUpgrade> boatUpgrade;
-	void UpgradeTest();*/
 };

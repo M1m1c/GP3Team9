@@ -12,11 +12,8 @@ UFloatMasterComp::UFloatMasterComp()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-void UFloatMasterComp::DisableFloating()
+void UFloatMasterComp::SinkFloater()
 {
-	//TODO pick two random float points to disable then wait half a second and disable two more,
-	//This should rpoduce some coler sinking animations
-
 	auto jumpDeathRand = FMath::RandRange(1, 3);
 
 	if (jumpDeathRand == 3) 
@@ -29,6 +26,24 @@ void UFloatMasterComp::DisableFloating()
 	
 
 	GetOwner()->GetWorldTimerManager().SetTimer(DisableFloatingTimer, this, &UFloatMasterComp::DisableRandomFloatPoints, 0.7f, true, 0.f);
+}
+
+void UFloatMasterComp::EnableFloating()
+{
+	for (auto comp : floatingComps)
+	{
+		if (!comp) { continue; }
+		comp->SetComponentTickEnabled(true);
+	}
+}
+
+void UFloatMasterComp::DisableFloating()
+{
+	for (auto comp : floatingComps)
+	{
+		if (!comp) { continue; }
+		comp->SetComponentTickEnabled(false);
+	}
 }
 
 void UFloatMasterComp::BeginPlay()

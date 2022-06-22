@@ -38,8 +38,6 @@ void UHealthSection::SectionApplyDamage(float damage)
 	auto calculatedDamage = FMath::Clamp(damage - (sectionArmor * crewCount), minDamage, damage);
 	currentSectionHealth = FMath::Clamp(currentSectionHealth - calculatedDamage, 0.f, maxSectionHealth);
 
-	//UE_LOG(LogTemp, Warning, TEXT("%s, %s health: %f"), *GetOwner()->GetName(), *this->GetName(), currentSectionHealth);
-
 	if (FMath::IsNearlyZero(currentSectionHealth))
 	{
 		OnSectionDestroyedWithRef.Broadcast(this);

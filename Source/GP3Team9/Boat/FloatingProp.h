@@ -40,7 +40,7 @@ protected:
 	bool bUsed = false;
 	float defaultAngularDamping = 0.f;
 	float defaultLinearDamping = 0.f;
-	float previousDeltaTime = 0.f;
+	float previousDeltaTime = -1.f;
 public:	
 	virtual void Tick(float DeltaTime) override;
 

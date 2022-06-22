@@ -4,8 +4,6 @@
 
 #include "BoatPawn.h"
 
-
-
 #include "Components/StaticMeshComponent.h"
 
 
@@ -36,15 +34,20 @@ int UIceBreakerComp::GetSegementCount()
 	return currentSegments;
 }
 
-
-void UIceBreakerComp::BeginPlay()
+void UIceBreakerComp::Initalize()
 {
-	Super::BeginPlay();
-
 	auto owner = GetOwner();
 	if (!ensure(owner)) { return; }
 	auto boat = Cast<ABoatPawn>(owner);
 	if (!ensure(boat)) { return; }
 
 	icebreakerMesh = boat->IceBreakerMesh;
+	if (!icebreakerMesh) { return; }
+	icebreakerMesh->SetHiddenInGame(!bStartWithIceBreaker);
+}
+
+
+void UIceBreakerComp::BeginPlay()
+{
+	Super::BeginPlay();
 }

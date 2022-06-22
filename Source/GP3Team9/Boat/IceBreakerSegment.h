@@ -18,4 +18,7 @@ public:
 		int32 OtherBodyIndex,
 		bool bFromSweep,
 		const FHitResult& SweepResult) override;
+
+	UFUNCTION(BlueprintImplementableEvent)
+		void OnPickedUp();
 };

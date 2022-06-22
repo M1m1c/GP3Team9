@@ -14,13 +14,16 @@ UGunDriverComp::UGunDriverComp()
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
+void UGunDriverComp::SetEnable(bool bEnable)
+{
+	bEnabled = bEnable;
+}
+
 void UGunDriverComp::SetTarget(AController* newTarget)
 {
 	target = newTarget;
 	if (!swivelShipGun) { return; }
-	auto aiming = swivelShipGun->aimingIndicator;
-	if (!aiming) { return; }
-	aiming->SetHiddenInGame(true);
+	swivelShipGun->HideAimingIndicator(true);
 }
 
 
@@ -38,6 +41,7 @@ void UGunDriverComp::SpawnPortGun(UPortGunSlot* slot, TArray<class AShipGun*>& s
 	shipGunList.Add(portGunInstance);
 	portGunInstance->Initalize(GetOwner(), slot->sectionPosition);
 	allGunSystems.Add(portGunInstance);
+	allGuns.Add(portGunInstance);
 }
 
 void UGunDriverComp::AimLeftGuns()
@@ -60,9 +64,16 @@ void UGunDriverComp::AimRightGuns()
 	}
 }
 
+void UGunDriverComp::FirePortGunsThatAreAiming()
+{
+	FireLeftGuns();
+	FireRightGuns();
+}
+
 void UGunDriverComp::FireLeftGuns()
 {
 	if (!initalized) { return; }
+	if (!bEnabled) { return; }
 	if (!leftShipGuns.Num()) { return; }
 	if (leftShipGuns[0]->bAutomaticFire && !target)
 	{
@@ -75,6 +86,7 @@ void UGunDriverComp::FireLeftGuns()
 void UGunDriverComp::FireRightGuns()
 {
 	if (!initalized) { return; }
+	if (!bEnabled) { return; }
 	if (!rightShipGuns.Num()) { return; }
 	if (rightShipGuns[0]->bAutomaticFire && !target)
 	{
@@ -87,6 +99,7 @@ void UGunDriverComp::FireRightGuns()
 void UGunDriverComp::FireSwivelGun()
 {
 	if (!initalized) { return; }
+	if (!bEnabled) { return; }
 	if (!swivelShipGun) { return; }
 	if (swivelShipGun->bAutomaticFire && !target)
 	{
@@ -101,6 +114,7 @@ void UGunDriverComp::FireArrayOfGuns(TArray<AShipGun*> guns, float traumaToAdd)
 	for (auto gun : guns)
 	{
 		if (!gun) { continue; }
+		if (!gun->bAiming) { continue; }
 		FireSingleShipGun(gun, traumaToAdd);
 	}
 }
@@ -112,6 +126,12 @@ void UGunDriverComp::FireSingleShipGun(AShipGun* gun, float traumaToAdd)
 	{
 		cameraShaker->AddShakeTrauma(traumaToAdd);
 	}
+}
+
+void UGunDriverComp::StopFirePortGuns()
+{
+	StopFireLeftGuns();
+	StopFireRightGuns();
 }
 
 void UGunDriverComp::StopFireLeftGuns()
@@ -133,6 +153,7 @@ void UGunDriverComp::StopFireSwivelGun()
 void UGunDriverComp::FireLeftGunsAtLocation(FVector location)
 {
 	if (!initalized) { return; }
+	if (!bEnabled) { return; }
 	if (!leftShipGuns.Num()) { return; }
 	auto targetRot = UKismetMathLibrary::FindLookAtRotation(leftShipGuns[0]->GetGunFiringLocation(), location);
 	for (auto gun : leftShipGuns)
@@ -146,6 +167,7 @@ void UGunDriverComp::FireLeftGunsAtLocation(FVector location)
 void UGunDriverComp::FireRightGunsAtLocation(FVector location)
 {
 	if (!initalized) { return; }
+	if (!bEnabled) { return; }
 	if (!rightShipGuns.Num()) { return; }
 	auto targetRot = UKismetMathLibrary::FindLookAtRotation(rightShipGuns[0]->GetGunFiringLocation(), location);
 	for (auto gun : rightShipGuns)
@@ -159,6 +181,7 @@ void UGunDriverComp::FireRightGunsAtLocation(FVector location)
 void UGunDriverComp::FireSwivelGunAtLocation(FVector location)
 {
 	if (!initalized) { return; }
+	if (!bEnabled) { return; }
 	if (!swivelShipGun) { return; }
 	auto targetRot = UKismetMathLibrary::FindLookAtRotation(swivelShipGun->GetGunFiringLocation(), location);
 	swivelShipGun->SetGunFirePointRotation(targetRot);
@@ -168,6 +191,11 @@ void UGunDriverComp::FireSwivelGunAtLocation(FVector location)
 TArray<IDamagableSystem*> UGunDriverComp::GetAllGunSystems()
 {
 	return allGunSystems;
+}
+
+TArray<AActor*> UGunDriverComp::GetAllGuns()
+{
+	return allGuns;
 }
 
 TMap<EGunSlotPosition, class AShipGun*> UGunDriverComp::GetEachDirectionShipGuns()
@@ -213,6 +241,7 @@ void UGunDriverComp::Initalize(USceneComponent* camHolder)
 		swivelShipGun = swivelGunInstance;
 		swivelShipGun->Initalize(GetOwner(), swivelGunSlot->sectionPosition);
 		allGunSystems.Add(swivelShipGun);
+		allGuns.Add(swivelShipGun);
 		swivelDefaultRotation = swivelGunSlot->GetRelativeRotation();
 		eachDirectionShipGuns.Add(EGunSlotPosition::Swivel, swivelShipGun);
 	}
@@ -257,9 +286,8 @@ void UGunDriverComp::Initalize(USceneComponent* camHolder)
 	if (target)
 	{
 		if (!swivelShipGun) { return; }
-		auto aiming = swivelShipGun->aimingIndicator;
-		if (!aiming) { return; }
-		aiming->SetHiddenInGame(true);
+		swivelShipGun->HideAimingIndicator(true);
+
 	}
 
 	initalized = true;
@@ -313,8 +341,8 @@ void UGunDriverComp::RotateGunsToFaceTargetController()
 	auto location = pawn->GetActorLocation();
 	auto targetRot = UKismetMathLibrary::FindLookAtRotation(swivelGunSlot->GetComponentLocation(), location);
 	FRotator newYawRot;
-	
-	if(swivelGunSlot)
+
+	if (swivelGunSlot)
 	{
 		if (targetRot.Yaw > swivelGlobalMinYaw && targetRot.Yaw < swivelGlobalMaxYaw)
 		{
@@ -322,7 +350,7 @@ void UGunDriverComp::RotateGunsToFaceTargetController()
 			swivelGunSlot->SetWorldRotation(newYawRot);
 		}
 	}
-	
+
 
 	if (leftGunSlots.Num())
 	{
@@ -340,7 +368,7 @@ void UGunDriverComp::RotateGunsToFaceTargetController()
 	}
 
 
-	if(rightGunSlots.Num())
+	if (rightGunSlots.Num())
 	{
 		targetRot = UKismetMathLibrary::FindLookAtRotation(rightGunSlots[0]->GetComponentLocation(), location);
 		if (targetRot.Yaw > portGunRightMinYaw && targetRot.Yaw < portGunRightMaxYaw)
@@ -354,22 +382,22 @@ void UGunDriverComp::RotateGunsToFaceTargetController()
 			}
 		}
 	}
-	
+
 
 }
 
 void UGunDriverComp::RotateGunsToLookWithCamera(float DeltaTime)
 {
 	auto newRot = swivelDefaultRotation + cameraHolder->GetRelativeRotation();
+
 	if (newRot.Yaw > swivelMinYaw && newRot.Yaw < swivelMaxYaw)
 	{
 		swivelGunSlot->SetRelativeRotation(newRot);
-		swivelShipGun->aimingIndicator->SetHiddenInGame(false);
+		if (swivelShipGun->bCanShowIndicator) { swivelShipGun->HideAimingIndicator(false); }
 	}
 	else
 	{
-
-		swivelShipGun->aimingIndicator->SetHiddenInGame(true);
+		if (swivelShipGun->bCanShowIndicator) { swivelShipGun->HideAimingIndicator(true); }
 	}
 	swivelShipGun->AlignFirePointToHorizon(DeltaTime);
 
@@ -425,11 +453,13 @@ void UGunDriverComp::UpdateShowAimingIndicator(bool condition, TArray<AShipGun*>
 		if (!gun) { continue; }
 		if (condition)
 		{
-			gun->aimingIndicator->SetHiddenInGame(false);
+			if(gun->bCanShowIndicator){gun->HideAimingIndicator(false);}
+			gun->bAiming = true;
 		}
 		else
 		{
-			gun->aimingIndicator->SetHiddenInGame(true);
+			if (gun->bCanShowIndicator) { gun->HideAimingIndicator(true); }
+			gun->bAiming = false;
 		}
 	}
 }

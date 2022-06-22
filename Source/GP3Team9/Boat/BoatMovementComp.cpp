@@ -9,10 +9,6 @@
 
 #include "Components/CapsuleComponent.h"
 
-UBoatMovementComp::UBoatMovementComp()
-{
-}
-
 void UBoatMovementComp::Initalize()
 {
 	owner = Cast<ABoatPawn>(GetOwner());
@@ -43,7 +39,7 @@ void UBoatMovementComp::DisallowGearChange()
 
 void UBoatMovementComp::ReadGearChange(float value)
 {
-
+	if (!bAllowGearChange) { return; }
 	if (FMath::Abs(value) < 0.5f)
 	{
 		bOnChangedGears = false;
@@ -72,7 +68,7 @@ void UBoatMovementComp::ReadGearChange(float value)
 void UBoatMovementComp::SetGear(int newGear)
 {
 
-	auto newIndex = FMath::Clamp(newGear, 0, gearClamp);
+	auto newIndex = FMath::Clamp(newGear, crewCount < 1 ? 1 : 0, gearClamp);
 	if (newIndex != gearIndex) { owner->OnGearChange(newIndex); }
 	gearIndex = newIndex;
 	throttle = throttleGears[gearIndex];
@@ -85,6 +81,7 @@ int UBoatMovementComp::GetGear()
 
 void UBoatMovementComp::ReadTurning(float value)
 {
+	if (!bAllowGearChange) { return; }
 	if (FMath::IsNearlyZero(value))
 	{
 		bUpdateTurnVel = false;
@@ -120,19 +117,38 @@ void UBoatMovementComp::UpdateCrewCount(int newCrewCount)
 
 void UBoatMovementComp::UpdateGearClamp()
 {
-	if (bDisabled) { return; }
-	if (crewCount < 2)
+	if (bDisabled)
 	{
-		gearClamp = 2;
-	}
-	else if (crewCount < 4)
-	{
-		gearClamp = 3;
+		if (crewCount < 1)
+		{
+			gearClamp = 1;
+		}
+		else if (crewCount < 2)
+		{
+			gearClamp = 2;
+		}
 	}
 	else
 	{
-		gearClamp = throttleGears.Num() - 1;
+		if (crewCount < 1)
+		{
+			gearClamp = 1;
+		}
+		else if (crewCount < 2)
+		{
+			gearClamp = 2;
+		}
+		else if (crewCount < 4)
+		{
+			gearClamp = 3;
+		}
+		else
+		{
+			gearClamp = throttleGears.Num() - 1;
+		}
 	}
+
+
 
 	SetGear(gearIndex);
 }
@@ -146,30 +162,22 @@ void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
 	auto velocityChange = moveVelocity + newVelocity;
 	auto bLargerThanGear = newVelocity > 0.f && velocityChange > throttle;
 	auto bLessThanGear = newVelocity < 0.f && velocityChange < throttle;
-	moveVelocity = FMath::Clamp(bLargerThanGear || bLessThanGear ? moveVelocity : velocityChange, -1.f, 1.f);
+	auto bNewVelocityExceedingGearThrottle = bLargerThanGear || bLessThanGear;
+	moveVelocity = FMath::Clamp(bNewVelocityExceedingGearThrottle ? moveVelocity : velocityChange, -1.f, 1.f);
 
 	FVector location = pushCollider->GetComponentLocation();
 
 	float RemainingTime = DeltaTime;
-	int Iterations = 0;
+	int iterations = 0;
 
 	auto force = ((maxSpeed + (crewCount * 3.f)) * DeltaTime * moveVelocity);
 	auto direction = owner->GetActorForwardVector();
 	auto velocity = direction * force;
-	while (RemainingTime > 0.f && ++Iterations < 10)
+	while (RemainingTime > 0.f && ++iterations < 10)
 	{
 
 
-		FVector accumuliativePush = FVector::ZeroVector;
-		if (pushForces.Num())
-		{
-			for (int i = pushForces.Num() - 1; i >= 0; i--)
-			{
-				accumuliativePush += pushForces[i];
-				pushForces.RemoveAt(i);
-			}
-		}
-
+		FVector accumuliativePush = CalculateAccumulativePushForce();
 		auto hit = AttemptMoveBoat(velocity, accumuliativePush, false);
 		auto ownerLocation = owner->GetActorLocation();
 
@@ -179,35 +187,22 @@ void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
 			owner->ApplyCollisionShake(0.5f);
 
 			if (iceBreakerComp->IsIceBreakerComplete())
-			{
-				auto IceChunk = Cast<AGP3IceChunk>(hit.Actor);
-				auto IceSlab = Cast<AGP3IceSlab>(hit.Actor);
-
-				if (IceChunk || IceSlab)
+			{			
+				if (IgnoreIceCollisions(hit, velocity, accumuliativePush, iterations))
 				{
-					AttemptMoveBoat(velocity, accumuliativePush, true);
-					Iterations = 10;
 					continue;
-				}
+				}	
 			}
 
 			auto normal2D = FVector(hit.Normal.X, hit.Normal.Y, 0.f);
 
-			if (hit.bStartPenetrating)
-			{
-				pushCollider->AddWorldOffset(normal2D * (hit.PenetrationDepth + 0.1f));
-			}
-			else
-			{
-				velocity = FVector::VectorPlaneProject(velocity, normal2D);
-
-				if (!FMath::IsNearlyZero(moveVelocity))
-				{
-					VeerAwayFromObstacle(hit, ownerLocation, DeltaTime);
-				}
-
-				RemainingTime -= RemainingTime * hit.Time;
-			}
+			RemainingTime = AvoidClippingHitObstalce(
+				hit,
+				normal2D, 
+				velocity, 
+				ownerLocation, 
+				DeltaTime, 
+				RemainingTime);
 
 			auto other = hit.GetActor();
 			if (other && !FMath::IsNearlyZero(moveVelocity))
@@ -219,8 +214,7 @@ void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
 				}
 				else
 				{
-					owner->ApplyCollisionDamage(10.f);
-					if (!FMath::IsNearlyZero(moveVelocity) && (moveVelocity > 0.f && gearIndex > 1)) { moveVelocity = 0.3f; }
+					CollideWithObstacle();
 				}
 			}
 
@@ -233,6 +227,67 @@ void UBoatMovementComp::UpdateBoatMovement(float DeltaTime)
 			break;
 		}
 	}
+}
+
+void UBoatMovementComp::CollideWithObstacle()
+{
+	owner->ApplyCollisionDamage(10.f);
+	auto bShouldReduceVelocity =
+		!FMath::IsNearlyZero(moveVelocity) &&
+		(moveVelocity > 0.f && gearIndex > 1);
+	if (bShouldReduceVelocity)
+	{
+		moveVelocity = 0.3f;
+	}
+}
+
+float UBoatMovementComp::AvoidClippingHitObstalce(FHitResult& hit, FVector& normal2D, FVector& velocity, FVector& ownerLocation, float DeltaTime, float RemainingTime)
+{
+	if (hit.bStartPenetrating)
+	{
+		pushCollider->AddWorldOffset(normal2D * (hit.PenetrationDepth + 0.1f));
+	}
+	else
+	{
+		velocity = FVector::VectorPlaneProject(velocity, normal2D);
+
+		if (!FMath::IsNearlyZero(moveVelocity))
+		{
+			VeerAwayFromObstacle(hit, ownerLocation, DeltaTime);
+		}
+
+		RemainingTime -= RemainingTime * hit.Time;
+	}
+	return RemainingTime;
+}
+
+bool UBoatMovementComp::IgnoreIceCollisions(FHitResult& hit, FVector& velocity, FVector& accumuliativePush, int& Iterations)
+{
+	auto retflag = false;
+	auto IceChunk = Cast<AGP3IceChunk>(hit.Actor);
+	auto IceSlab = Cast<AGP3IceSlab>(hit.Actor);
+
+	if (IceChunk || IceSlab)
+	{
+		AttemptMoveBoat(velocity, accumuliativePush, true);
+		Iterations = 10;
+		retflag = true;
+	}
+	return retflag;
+}
+
+FVector UBoatMovementComp::CalculateAccumulativePushForce()
+{
+	FVector accumuliativePush =FVector::ZeroVector;
+	if (pushForces.Num())
+	{
+		for (int i = pushForces.Num() - 1; i >= 0; i--)
+		{
+			accumuliativePush += pushForces[i];
+			pushForces.RemoveAt(i);
+		}
+	}
+	return accumuliativePush;
 }
 
 FHitResult UBoatMovementComp::AttemptMoveBoat(FVector& velocity, FVector& accumuliativePush, bool bIgnoreSweep)

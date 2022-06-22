@@ -13,11 +13,8 @@ class GP3TEAM9_API UBoatMovementComp : public UActorComponent, public IDamagable
 	GENERATED_BODY()
 
 public:
-	UBoatMovementComp();
 
 	void Initalize();
-
-	bool bInitalized = false;
 
 	void AllowGearChange();
 	void DisallowGearChange();
@@ -28,6 +25,19 @@ public:
 	int GetGear();
 
 	void ReadTurning(float value);
+	void IncreaseCollTurnAdditive(float valueToAdd);
+
+	void UpdateBoatRotation(float DeltaTime);
+
+	void UpdateMeshHolderRoll();
+
+	void UpdateBoatMovement(float DeltaTime);
+
+	void AddPushForce(FVector forceVector);
+
+	FHitResult AttemptMoveBoat(FVector& velocity, FVector& accumuliativePush, bool bIgnoreSweep);
+
+	int GetBoatSize();
 
 	virtual EHealthSectionPosition GetSectionPosition() override;
 	virtual void DisableSystem() override;
@@ -37,7 +47,7 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 		float turnSpeed = 80.f;
 
-	void IncreaseCollTurnAdditive(float valueToAdd);
+	bool bInitalized = false;
 
 protected:
 
@@ -51,12 +61,31 @@ protected:
 
 	void UpdateGearClamp();
 
+	void CollideWithObstacle();
+
+	float AvoidClippingHitObstalce(
+		FHitResult& hit,
+		FVector& normal2D,
+		FVector& velocity,
+		FVector& ownerLocation,
+		float DeltaTime,
+		float RemainingTime);
+
+	bool IgnoreIceCollisions(FHitResult& hit,
+		FVector& velocity,
+		FVector& accumuliativePush,
+		int& Iterations);
+
+	FVector CalculateAccumulativePushForce();
+
 	UPROPERTY(EditDefaultsOnly)
 		float maxSpeed = 500.0f;
 
-
 	UPROPERTY(BlueprintReadOnly)
 		float moveVelocity = .0f;
+
+	UPROPERTY(BlueprintReadOnly)
+		float turnVelocity = .0f;
 
 	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 		float velDecelerationSpeed = 0.2f;
@@ -81,18 +110,14 @@ protected:
 	float turnDirection;
 	float collTurnAdditive = 0.f;
 
-	bool bDisabled = false;
-	bool bAllowGearChange = false;
-	bool bOnChangedGears = false;
 	TArray<float> throttleGears = { -0.45f,0.f,0.45f,0.7f,1.f };
 	int gearIndex = 1;
 	int gearClamp = 4;
-
 	int crewCount = 0;
 
-	UPROPERTY(BlueprintReadOnly)
-		float turnVelocity = .0f;
-
+	bool bDisabled = false;
+	bool bAllowGearChange = true;
+	bool bOnChangedGears = false;
 	bool bUpdateTurnVel = false;
 
 	class ABoatPawn* owner;
@@ -103,18 +128,4 @@ protected:
 
 	UPROPERTY()
 	TArray<FVector> pushForces;
-
-public:
-
-	void UpdateBoatRotation(float DeltaTime);
-
-	void UpdateMeshHolderRoll();
-
-	void UpdateBoatMovement(float DeltaTime);
-
-	FHitResult AttemptMoveBoat(FVector& velocity, FVector& accumuliativePush, bool bIgnoreSweep);
-
-	void AddPushForce(FVector forceVector);
-
-	int GetBoatSize();
 };

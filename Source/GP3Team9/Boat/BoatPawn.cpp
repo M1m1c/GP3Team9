@@ -10,16 +10,16 @@
 #include "CrewComp.h"
 #include "UpgradeManagerComp.h"
 #include "ShipGun.h"
-//#include "BoatUpgrade.h"
-//#include "ArmorUpgrade.h"
 #include "FloatingProp.h"
 #include "IceBreakerComp.h"
+#include "FloatDisablerSphere.h"
 
 
 #include "Components/StaticMeshComponent.h"
 #include <Runtime/Engine/Classes/GameFramework/SpringArmComponent.h>
 #include <Runtime/Engine/Classes/Camera/CameraComponent.h>
 #include "Components/CapsuleComponent.h"
+#include "GP3Team9/ForceFeedback/GP3ForceFeedbackComp.h"
 
 ABoatPawn::ABoatPawn()
 {
@@ -81,7 +81,24 @@ ABoatPawn::ABoatPawn()
 
 	iceBreakerComp = CreateDefaultSubobject<UIceBreakerComp>(TEXT("IceBreakerComp"));
 
-	//upgradeComp = CreateDefaultSubobject<UUpgradeManagerComp>(TEXT("UpgradeComp"));
+	forceFeedbackComp = CreateDefaultSubobject<UGP3ForceFeedbackComp>(TEXT("ForceFeedbackComp"));
+
+}
+
+void ABoatPawn::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	if (!Cast<APlayerController>(NewController)) { return; }
+	SetupPlayerFloatDisabler(GetController());
+	auto guns = gunDriverComp->GetAllGuns();
+	for (auto gun : guns)
+	{
+		auto cast = Cast<AShipGun>(gun);
+		if (cast) 
+		{
+			cast->SetIsControlledByPlayer(true);
+		}
+	}
 }
 
 void ABoatPawn::BeginPlay()
@@ -89,8 +106,6 @@ void ABoatPawn::BeginPlay()
 	Super::BeginPlay();
 	boatBody->SetSimulatePhysics(true);
 	boatBody->SetEnableGravity(false);
-	//boatBody->SetLinearDamping(2.f);
-	//boatBody->SetAngularDamping(5.f);
 	defaultAngularDamping = boatBody->GetAngularDamping();
 	defaultLinearDamping = boatBody->GetLinearDamping();
 	//(X=0.282589,Y=0.282589,Z=0.282589)
@@ -105,20 +120,35 @@ void ABoatPawn::BeginPlay()
 	healthComp->Initalize(gunDriverComp);
 	crewComp->Initalize();
 	pushCollider->SetCollisionProfileName(FName("BoatPush"));
-
+	iceBreakerComp->Initalize();
 
 	ArmorTier1Graphics->bHiddenInGame = true;
 	ArmorTier2Graphics->bHiddenInGame = true;
 	ArmorTier3Graphics->bHiddenInGame = true;
-	IceBreakerMesh->SetHiddenInGame(true);
-	//IceBreakerMesh->bHiddenInGame = true;
-	//IceBreakerMesh->SetCollisionProfileName(FName("NoCollision"));
 
 	healthComp->OnBoatDeath.AddDynamic(this, &ABoatPawn::OnBoatDeath);
 	healthComp->OnSectionDestroyed.AddDynamic(this, &ABoatPawn::OnSectionDestroyed);
 	healthComp->OnSectionRepaired.AddDynamic(this, &ABoatPawn::OnSectionRepaired);
-	//healthComp->OnSectionHit.AddDynamic(this, &ABoatPawn::OnSectionHit);
 	crewComp->OnSendCrew.AddDynamic(this, &ABoatPawn::OnSendCrew);
+	SetupPlayerFloatDisabler(GetController());
+}
+
+void ABoatPawn::SetupPlayerFloatDisabler(AController* controller)
+{
+	if (!controller) { return; }
+
+	auto player = Cast<APlayerController>(controller);
+	if (!player) { return; }
+	UE_LOG(LogTemp, Warning, TEXT("possesed by player"));
+	floatMasterComp->EnableFloating();
+
+	if (!floatDisablerSphere) {
+		auto location = GetActorLocation();
+		auto rotation = GetActorRotation();
+		floatDisablerSphere = GetWorld()->SpawnActor<AFloatDisablerSphere>(AFloatDisablerSphere::StaticClass(), location, rotation);
+		floatDisablerSphere->SetScale(FVector(floatDisablerSize));
+	}
+	floatDisablerSphere->SetOwner(this);
 }
 
 void ABoatPawn::Tick(float DeltaTime)
@@ -127,10 +157,10 @@ void ABoatPawn::Tick(float DeltaTime)
 
 	if (boatBody)
 	{
-		if (FMath::IsNearlyZero(previousDeltaTime)) { previousDeltaTime = DeltaTime; }
+		if (previousDeltaTime < 0.f) { previousDeltaTime = DeltaTime; }
 		auto fps = previousDeltaTime / 1.f;
-		boatBody->SetLinearDamping(FMath::Clamp(FMath::Lerp(defaultLinearDamping, 50.f, fps), defaultLinearDamping, 50.f));
-		boatBody->SetAngularDamping(FMath::Clamp(FMath::Lerp(defaultAngularDamping, 50.f, fps), defaultLinearDamping, 50.f));
+		boatBody->SetLinearDamping(FMath::Clamp(FMath::Lerp(defaultLinearDamping, 100.f, fps), defaultLinearDamping, 100.f));
+		boatBody->SetAngularDamping(FMath::Clamp(FMath::Lerp(defaultAngularDamping, 100.f, fps), defaultLinearDamping, 100.f));
 
 		if (boatMovementComp) {
 			if (boatMovementComp->bInitalized) {
@@ -143,6 +173,11 @@ void ABoatPawn::Tick(float DeltaTime)
 	}
 	if (GetActorLocation().Z < -9500.f) { DestroyBoat(); }
 	collisionTimer = FMath::Clamp(collisionTimer - DeltaTime, 0.f, maxCollisionTimer);
+
+	if (floatDisablerSphere)
+	{
+		floatDisablerSphere->SetActorLocation(GetActorLocation());
+	}
 }
 
 bool ABoatPawn::GetIsInCameraMode()
@@ -171,8 +206,8 @@ void ABoatPawn::OnBoatDeath()
 	if (bIsBoatDead) { return; }
 	OnBoatDeathEvent();
 	bIsBoatDead = true;
-	floatMasterComp->DisableFloating();
-
+	floatMasterComp->SinkFloater();
+	gunDriverComp->SetEnable(false);
 	if (!itemToDropOnDeath) { return; }
 	auto location = GetActorLocation() + FVector(0.f, 0.f, 500.f);
 	auto rotation = GetActorRotation();
@@ -204,26 +239,17 @@ void ABoatPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 	InputComponent->BindAxis("CameraHorizontal", cameraDriver, &UCameraDriverComp::ReadCameraHorizontal);
 	InputComponent->BindAxis("CameraVertical", cameraDriver, &UCameraDriverComp::ReadCameraVertical);
-	//InputComponent->BindAxis("CameraZoom", cameraDriver, &UCameraDriverComp::ReadCameraZoom);
 	InputComponent->BindAction("FreeCameraLook", IE_Pressed, cameraDriver, &UCameraDriverComp::ToggleCameraFreeLook);
-
-	//InputComponent->BindAction("AllowGearChange", IE_Pressed, boatMovementComp, &UBoatMovementComp::AllowGearChange);
-	//InputComponent->BindAction("DisallowGearChange", IE_Released, boatMovementComp, &UBoatMovementComp::DisallowGearChange);
 
 	InputComponent->BindAxis("GearChange", boatMovementComp, &UBoatMovementComp::ReadGearChange);
 	InputComponent->BindAxis("TurnDirection", boatMovementComp, &UBoatMovementComp::ReadTurning);
 
-	InputComponent->BindAction("FireLeft", IE_Pressed, gunDriverComp, &UGunDriverComp::FireLeftGuns);
-	//InputComponent->BindAction("FireLeft", IE_Pressed, cameraDriver, &UCameraDriverComp::AimLeft);
-	InputComponent->BindAction("FireLeft", IE_Released, gunDriverComp, &UGunDriverComp::StopFireLeftGuns);
-	InputComponent->BindAction("FireLeft", IE_Pressed, gunDriverComp, &UGunDriverComp::AimLeftGuns);
-	InputComponent->BindAction("FireLeft", IE_Released, cameraDriver, &UCameraDriverComp::StopAimLeft);
+	InputComponent->BindAction("FireLeft", IE_Pressed, gunDriverComp, &UGunDriverComp::FirePortGunsThatAreAiming);;
+	InputComponent->BindAction("FireLeft", IE_Released, gunDriverComp, &UGunDriverComp::StopFirePortGuns);
 
-	InputComponent->BindAction("FireRight", IE_Pressed, gunDriverComp, &UGunDriverComp::FireRightGuns);
-	//InputComponent->BindAction("FireRight", IE_Pressed, cameraDriver, &UCameraDriverComp::AimRight);
-	InputComponent->BindAction("FireRight", IE_Released, gunDriverComp, &UGunDriverComp::StopFireRightGuns);
-	InputComponent->BindAction("FireRight", IE_Pressed, gunDriverComp, &UGunDriverComp::AimRightGuns);
-	InputComponent->BindAction("FireRight", IE_Released, cameraDriver, &UCameraDriverComp::StopAimRight);
+	InputComponent->BindAction("FireRight", IE_Pressed, gunDriverComp, &UGunDriverComp::FirePortGunsThatAreAiming);
+
+	InputComponent->BindAction("FireRight", IE_Released, gunDriverComp, &UGunDriverComp::StopFirePortGuns);
 
 	InputComponent->BindAction("FireSwivel", IE_Pressed, gunDriverComp, &UGunDriverComp::FireSwivelGun);
 	InputComponent->BindAction("FireSwivel", IE_Released, gunDriverComp, &UGunDriverComp::StopFireSwivelGun);
@@ -231,9 +257,10 @@ void ABoatPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	InputComponent->BindAxis("MoveCrewX", crewComp, &UCrewComp::MoveCrewMemberX);
 	InputComponent->BindAxis("MoveCrewY", crewComp, &UCrewComp::MoveCrewMemberY);
 
-
-	//InputComponent->BindAction("UpgradeTest", IE_Pressed, this, &ABoatPawn::UpgradeTest);
-	InputComponent->BindAction("UpgradeTest", IE_Pressed, this, &ABoatPawn::LevelUpBoat);
+	InputComponent->BindAction("MoveCrewLock", IE_Pressed, crewComp, &UCrewComp::DisableCrewLock);
+	InputComponent->BindAction("MoveCrewLock", IE_Released, crewComp, &UCrewComp::EnableCrewLock);
+	InputComponent->BindAction("MoveCrewLock", IE_Released, boatMovementComp, &UBoatMovementComp::AllowGearChange);
+	InputComponent->BindAction("MoveCrewLock", IE_Pressed, boatMovementComp, &UBoatMovementComp::DisallowGearChange);
 
 }
 
@@ -280,17 +307,38 @@ UStaticMeshComponent* ABoatPawn::GetFloatBody()
 	return boatBody;
 }
 
+
+ABoatPawn* ABoatPawn::SpawnAndPossesBoat(TSubclassOf<ABoatPawn>& boatToSwapTo, FVector location, FRotator rotation, AController* myController)
+{
+	auto newBoat = GetWorld()->SpawnActor<ABoatPawn>(boatToSwapTo, location, rotation);
+	newBoat->crewComp->SetCrewCount(crewComp->GetCrewCount());
+	newBoat->iceBreakerComp->IncreaseSegments(iceBreakerComp->GetSegementCount());
+	newBoat->boatMovementComp->SetGear(boatMovementComp->GetGear());
+	newBoat->floatDisablerSphere = floatDisablerSphere;
+	myController->Possess(newBoat);
+	newBoat->PossessedBy(myController);
+	return newBoat;
+}
+
 void ABoatPawn::SwapBoat(TSubclassOf<ABoatPawn> boatToSwapTo)
 {
 	auto myController = GetController();
 	auto location = GetActorLocation() + FVector(0.f, 0.f, 500.f);
 	auto rotation = GetActorRotation();
 
-	auto newBoat = GetWorld()->SpawnActor<ABoatPawn>(boatToSwapTo, location, rotation);
-	newBoat->crewComp->SetCrewCount(crewComp->GetCrewCount());
-	newBoat->iceBreakerComp->IncreaseSegments(iceBreakerComp->GetSegementCount());
-	newBoat->boatMovementComp->SetGear(boatMovementComp->GetGear());
-	myController->Possess(newBoat);
+	auto newBoat = SpawnAndPossesBoat(boatToSwapTo, location, rotation, myController);
+	newBoat->OnBoatUpgradeEvent();
+	OnBoatSwapEvent(newBoat);
+}
+
+
+void ABoatPawn::SwapBoat(TSubclassOf<ABoatPawn> boatToSwapTo, FVector spawnLocaiton, FRotator spawnRotation)
+{
+	auto myController = GetController();
+	auto location = spawnLocaiton;
+	auto rotation = spawnRotation;
+
+	auto newBoat = SpawnAndPossesBoat(boatToSwapTo, location, rotation, myController);
 	OnBoatSwapEvent(newBoat);
 }
 
@@ -310,10 +358,3 @@ void ABoatPawn::LevelUpBoat()
 	if (!NextLevelBoat) { return; }
 	SwapBoat(NextLevelBoat);
 }
-
-//void ABoatPawn::UpgradeTest()
-//{
-//	if (!boatUpgrade) { return; }
-//	auto instance = NewObject<UArmorUpgrade>(boatUpgrade);
-//	upgradeComp->ApplyUpgrade(Cast<IBoatUpgrade>(instance));
-//}

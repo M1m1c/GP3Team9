@@ -64,7 +64,6 @@ void UHealthComp::BeginPlay()
 
 void UHealthComp::DestroyedDamageDistribution(float damageTaken)
 {
-	//TODO if sections destroyed equals health sections num then kill boat
 	if (healthSections.Num() == destroyedHealthSections.Num()) 
 	{
 		OnBoatDeath.Broadcast();
@@ -106,14 +105,6 @@ void UHealthComp::RemoveDestroyedSection(UHealthSection* sectionRepaired)
 void UHealthComp::SectionHit()
 {
 	OnSectionHit.Broadcast();
-}
-
-void UHealthComp::UpgradeArmor(float armorIncrease)
-{
-	/*for (auto section : healthSections)
-	{
-		section->IncreaseArmor(armorIncrease);
-	}*/
 }
 
 void UHealthComp::ApplyDamageToAllSections(float damage)
