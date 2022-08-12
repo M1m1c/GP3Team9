@@ -1,6 +1,10 @@
 # GP3Team9
 A boat combat game where boats float and react to water. Made in Unreal Enigne 4
 
+<a href="https://youtu.be/_qutyYleGLY
+" target="_blank"><img src="http://img.youtube.com/vi/_qutyYleGLY/0.jpg" 
+alt="IMAGE ALT TEXT HERE" width="240" height="180" border="10" /></a>
+
 This project was made using perforce, therefore the commit history here is not accurate.
 
 The code in the [Boat](https://github.com/M1m1c/GP3Team9/tree/main/Source/GP3Team9/Boat) folder was written by: [Ludvig Baummann Olsson](https://github.com/M1m1c)
