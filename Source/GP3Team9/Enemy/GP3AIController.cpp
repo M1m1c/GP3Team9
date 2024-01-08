@@ -254,19 +254,6 @@ void AGP3AIController::AttackPlayer()
 	}
 	DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation() + FVector(-50, 100, 0), TargetPlayer->GetActorLocation(),
 				FColor::Magenta, false, -1, 0, 50);
-	
-	// if (AngleToPlayer > SideGunMaxAngleRear ||
-	// 	AngleToPlayer > -SideGunMaxAngleFront && AngleToPlayer < 0)
-	// {
-	// 	Self->boatMovementComp->ReadTurning(-1.0f);
-	// 	return;
-	// }
-	//
-	// if (AngleToPlayer < -SideGunMaxAngleRear ||
-	// 	AngleToPlayer < SideGunMaxAngleFront && AngleToPlayer > 0)
-	// {
-	// 	Self->boatMovementComp->ReadTurning(1.0f);
-	// }
 }
 
 FVector AGP3AIController::GetRandomizedFiringTargetPosition()
