@@ -123,7 +123,7 @@ void AGP3AIController::Cruise()
 void AGP3AIController::ChasePlayer()
 {
 	Logger("Player spotted, chasing");
-	//DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation(), TargetPlayer->GetActorLocation(), FColor::Blue);
+	DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation(), TargetPlayer->GetActorLocation(), FColor::Blue);
 
 	LastKnownPlayerPosition = TargetPlayer->GetActorLocation();
 	
@@ -186,7 +186,8 @@ void AGP3AIController::AttackPlayer()
 	FVector PlayerLocationInAILocalSpace = UKismetMathLibrary::InverseTransformLocation(
 		GetPawn()->GetTransform(), TargetPlayer->GetActorLocation());
 	float AngleToPlayer = FMath::Atan2(PlayerLocationInAILocalSpace.Y , PlayerLocationInAILocalSpace.X);
-	
+
+
 	// Unless player is "directly" behind player, fire swivel gun.
 	FFloatRange SwivelGunAngleRange = FFloatRange(-2.0f, 2.0f);
 	if (SwivelGunAngleRange.Contains(AngleToPlayer))
@@ -194,13 +195,21 @@ void AGP3AIController::AttackPlayer()
 		if (SwivelGunTimeSinceLastFire < SwivelGunFireDelay)
 		{
 			SwivelGunTimeSinceLastFire += GetWorld()->DeltaTimeSeconds;
-			return;
 		}
-		
-		Self->gunDriverComp->FireSwivelGunAtLocation(GetRandomizedFiringTargetPosition());
-		Logger("Firing Swivel gun");
-		SwivelGunFireDelay = UKismetMathLibrary::RandomFloat() + 2;
-		SwivelGunTimeSinceLastFire = 0;
+		else
+		{
+			Self->gunDriverComp->FireSwivelGunAtLocation(GetRandomizedFiringTargetPosition());
+			Logger("Firing Swivel gun");
+			SwivelGunFireDelay = UKismetMathLibrary::RandomFloat() + 2;
+			SwivelGunTimeSinceLastFire = 0;
+		}
+		DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation() + FVector(150, 200, 0), TargetPlayer->GetActorLocation(),
+				FColor::Green, false, -1, 0, 50);
+	}
+	else
+	{
+		DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation() + FVector(150, 200, 0), TargetPlayer->GetActorLocation(),
+				FColor::Red, false, -1, 0, 50);
 	}
 	
 	// If angle to player is "sideways", shoot side gun. Otherwise, rotate to get there.
@@ -212,32 +221,52 @@ void AGP3AIController::AttackPlayer()
 	
 	if (RightGunAngleRange.Contains(AngleToPlayer))
 	{
-		Logger("Firing right gun");
 		Self->gunDriverComp->FireRightGunsAtLocation(GetRandomizedFiringTargetPosition());
+		DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation() + FVector(-50, 100, 0), TargetPlayer->GetActorLocation(),
+			FColor::Cyan, false, -1, 0, 50);
 		return;
 	}
 
 	if (LeftGunAngleRange.Contains(AngleToPlayer))
 	{
-		Logger("Firing left gun");
 		Self->gunDriverComp->FireLeftGunsAtLocation(GetRandomizedFiringTargetPosition());
+		DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation() + FVector(-50, 100, 0), TargetPlayer->GetActorLocation(),
+			FColor::Cyan, false, -1, 0, 50);
 		return;
 	}
-	
-	if (AngleToPlayer > SideGunMaxAngleRear ||
-		AngleToPlayer > -SideGunMaxAngleFront && AngleToPlayer < 0)
+
+
+	if (AngleToPlayer < SideGunMaxAngleFront && AngleToPlayer > 0  ||
+		AngleToPlayer < -SideGunMaxAngleRear && AngleToPlayer < 0)
 	{
-		Self->boatMovementComp->ReadTurning(-0.1f);
-		Logger("Rotating RIGHT");
+		Self->boatMovementComp->ReadTurning(-1.0f);
+		DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation() + FVector(-50, 100, 0), TargetPlayer->GetActorLocation(),
+				FColor::Magenta, false, -1, 0, 50);
 		return;
 	}
-	
-	if (AngleToPlayer < -SideGunMaxAngleRear ||
-		AngleToPlayer < SideGunMaxAngleFront && AngleToPlayer > 0)
+	if (AngleToPlayer > -SideGunMaxAngleFront && AngleToPlayer < 0 ||
+		AngleToPlayer > SideGunMaxAngleRear && AngleToPlayer > 0)
 	{
-		Self->boatMovementComp->ReadTurning(0.1f);
-		Logger("Rotating LEFT");
+		Self->boatMovementComp->ReadTurning(1.0f);
+		DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation() + FVector(-50, 100, 0), TargetPlayer->GetActorLocation(),
+				FColor::Magenta, false, -1, 0, 50);
+		return;
 	}
+	DrawDebugLine(GetWorld(), GetPawn()->GetActorLocation() + FVector(-50, 100, 0), TargetPlayer->GetActorLocation(),
+				FColor::Magenta, false, -1, 0, 50);
+	
+	// if (AngleToPlayer > SideGunMaxAngleRear ||
+	// 	AngleToPlayer > -SideGunMaxAngleFront && AngleToPlayer < 0)
+	// {
+	// 	Self->boatMovementComp->ReadTurning(-1.0f);
+	// 	return;
+	// }
+	//
+	// if (AngleToPlayer < -SideGunMaxAngleRear ||
+	// 	AngleToPlayer < SideGunMaxAngleFront && AngleToPlayer > 0)
+	// {
+	// 	Self->boatMovementComp->ReadTurning(1.0f);
+	// }
 }
 
 FVector AGP3AIController::GetRandomizedFiringTargetPosition()
